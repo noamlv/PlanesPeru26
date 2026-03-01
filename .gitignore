@@ -1,0 +1,20 @@
+.DS_Store
+.Rhistory
+.RData
+.Rproj.user/
+
+# Local heavy inputs/outputs (no necesarios para publicar la web)
+Planes/
+data/
+outputs/
+
+# Quarto/R build caches
+site/.quarto/
+site/_site/
+
+# renv local library cache (keep lockfile)
+renv/library/
+
+# Logs/temp
+*.log
+*.tmp

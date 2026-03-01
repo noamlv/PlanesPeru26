@@ -1,0 +1,330 @@
+---
+title: "05 · Explorador de Propuestas"
+format: html
+---
+
+::: {.hero}
+<div class="hero-title">Exploración directa con trazabilidad documental</div>
+<div class="meta-line"><span><strong>Autor:</strong> Equipo de Ciencia de Datos</span><span><strong>Fuente:</strong> `outputs/propuestas_supervised.parquet` + PDFs originales de `Planes/`</span></div>
+:::
+
+## Qué aprenderás aquí
+
+Podrás buscar propuestas con una caja simple de texto, filtrar por partido/eje y abrir el PDF original del plan para validar trazabilidad.
+
+```{r}
+library(arrow)
+library(dplyr)
+library(stringr)
+library(stringi)
+library(fs)
+library(jsonlite)
+
+propuestas <- read_parquet("../outputs/propuestas_supervised.parquet")
+
+normalize_key <- function(x) {
+  x <- coalesce(as.character(x), "")
+  x <- stringi::stri_trans_general(x, "Any-Latin; Latin-ASCII")
+  x <- str_to_lower(x)
+  x <- str_replace_all(x, "[^a-z0-9]+", " ")
+  str_squish(x)
+}
+
+pdf_files <- fs::dir_ls("../Planes", recurse = FALSE, type = "file", regexp = "(?i)\\.pdf$")
+pdf_files <- pdf_files[!str_detect(path_file(pdf_files), regex("resumen", ignore_case = TRUE))]
+
+pdf_lookup <- tibble(
+  pdf_name = path_file(pdf_files),
+  party_guess = str_trim(str_remove(path_ext_remove(path_file(pdf_files)), "\\s+-\\s+[^-]+$")),
+  party_key = normalize_key(party_guess)
+) |>
+  distinct(party_key, .keep_all = TRUE)
+
+view_df <- propuestas |>
+  transmute(
+    party = as.character(party),
+    doc_id,
+    proposal_id,
+    axis = coalesce(axis_supervised, axis, "otros"),
+    instrument_type = coalesce(instrument_supervised, instrument_type, "unspecified"),
+    concreteness_score = as.numeric(coalesce(concreteness_score, 0)),
+    has_quant_target = as.logical(coalesce(has_quant_target, FALSE)),
+    has_time_horizon = as.logical(coalesce(has_time_horizon, FALSE)),
+    proposal_text = str_squish(as.character(proposal_text)),
+    source_snippet = str_squish(as.character(source_snippet)),
+    party_key = normalize_key(party)
+  ) |>
+  left_join(pdf_lookup |> select(party_key, pdf_name), by = "party_key") |>
+  mutate(
+    pdf_href = if_else(
+      !is.na(pdf_name),
+      paste0("plans_pdf/", vapply(pdf_name, URLencode, character(1), reserved = TRUE)),
+      NA_character_
+    )
+  ) |>
+  select(
+    party,
+    doc_id,
+    proposal_id,
+    axis,
+    instrument_type,
+    concreteness_score,
+    has_quant_target,
+    has_time_horizon,
+    proposal_text,
+    source_snippet,
+    pdf_href
+  )
+
+dir.create("_site/assets", recursive = TRUE, showWarnings = FALSE)
+dir.create("_site/plans_pdf", recursive = TRUE, showWarnings = FALSE)
+
+pdf_targets <- file.path("_site/plans_pdf", path_file(pdf_files))
+to_copy <- !file.exists(pdf_targets)
+if (any(to_copy)) {
+  copied <- file.copy(pdf_files[to_copy], pdf_targets[to_copy], overwrite = FALSE)
+  invisible(copied)
+}
+
+jsonlite::write_json(
+  view_df,
+  "_site/assets/explorador_data.json",
+  auto_unbox = TRUE,
+  pretty = FALSE,
+  dataframe = "rows",
+  na = "null"
+)
+
+json_payload <- jsonlite::toJSON(
+  view_df,
+  auto_unbox = TRUE,
+  pretty = FALSE,
+  dataframe = "rows",
+  na = "null"
+)
+
+js_code <- paste(c(
+  "(function () {",
+  "  const PAGE_SIZE = 24;",
+  "  const EMBEDDED_DATA = __DATA_PLACEHOLDER__;",
+  "  let rows = [];",
+  "  let ranked = [];",
+  "  let shown = 0;",
+  "",
+  "  const qInput = document.getElementById('explorer-query');",
+  "  const partySel = document.getElementById('explorer-party');",
+  "  const axisSel = document.getElementById('explorer-axis');",
+  "  const chkConcrete = document.getElementById('explorer-only-concrete');",
+  "  const btnSearch = document.getElementById('explorer-search');",
+  "  const btnClear = document.getElementById('explorer-clear');",
+  "  const metaEl = document.getElementById('explorer-meta');",
+  "  const outEl = document.getElementById('explorer-results');",
+  "  const btnMore = document.getElementById('explorer-loadmore');",
+  "",
+  "  if (!qInput || !partySel || !axisSel || !chkConcrete || !btnSearch || !btnClear || !metaEl || !outEl || !btnMore) {",
+  "    return;",
+  "  }",
+  "",
+  "  const normalize = (s) => (s || '')",
+  "    .toLowerCase()",
+  "    .normalize('NFD')",
+  "    .replace(/[\\u0300-\\u036f]/g, '')",
+  "    .replace(/[^a-z0-9\\s]/g, ' ')",
+  "    .replace(/\\s+/g, ' ')",
+  "    .trim();",
+  "",
+  "  const escapeHtml = (s) => (s || '')",
+  "    .replaceAll('&', '&amp;')",
+  "    .replaceAll('<', '&lt;')",
+  "    .replaceAll('>', '&gt;')",
+  "    .replaceAll('\\\"', '&quot;');",
+  "",
+  "  const truncate = (s, n) => {",
+  "    if (!s) return '';",
+  "    return s.length > n ? s.slice(0, n - 1).trim() + '…' : s;",
+  "  };",
+  "",
+  "  const scoreRow = (row, queryNorm, tokens) => {",
+  "    const corpus = normalize([row.proposal_text, row.source_snippet, row.axis, row.instrument_type, row.party].join(' '));",
+  "    if (!queryNorm) {",
+  "      return (Number(row.concreteness_score) || 0) / 20 + (row.has_quant_target ? 0.5 : 0) + (row.has_time_horizon ? 0.5 : 0);",
+  "    }",
+  "    let score = 0;",
+  "    if (corpus.includes(queryNorm)) score += 8;",
+  "    for (const token of tokens) {",
+  "      if (token.length < 2) continue;",
+  "      if (corpus.includes(token)) score += 2.2;",
+  "    }",
+  "    if (row.has_quant_target) score += 0.8;",
+  "    if (row.has_time_horizon) score += 0.8;",
+  "    score += (Number(row.concreteness_score) || 0) / 30;",
+  "    return score;",
+  "  };",
+  "",
+  "  const renderCards = (reset) => {",
+  "    if (reset) {",
+  "      shown = 0;",
+  "      outEl.innerHTML = '';",
+  "    }",
+  "",
+  "    const batch = ranked.slice(shown, shown + PAGE_SIZE);",
+  "    if (batch.length === 0 && shown === 0) {",
+  "      outEl.innerHTML = '<div class=\"small-muted\">No hay resultados con ese criterio. Prueba otra palabra o quita filtros.</div>';",
+  "      btnMore.style.display = 'none';",
+  "      return;",
+  "    }",
+  "",
+  "    const html = batch.map((r) => {",
+  "      const score = Number(r.concreteness_score || 0).toFixed(1);",
+  "      const quant = r.has_quant_target ? 'Sí' : 'No';",
+  "      const time = r.has_time_horizon ? 'Sí' : 'No';",
+  "      const pdfLink = r.pdf_href",
+  "        ? '<a class=\"explorer-link\" href=\"' + r.pdf_href + '\" target=\"_blank\" rel=\"noopener\">Abrir plan PDF</a>'",
+  "        : '<span class=\"small-muted\">PDF no mapeado</span>';",
+  "",
+  "      return '' +",
+  "        '<article class=\"explorer-card\">' +",
+  "          '<div class=\"explorer-card-head\">' +",
+  "            '<div>' +",
+  "              '<div class=\"explorer-party\">' + escapeHtml(r.party || 'Sin partido') + '</div>' +",
+  "              '<div class=\"explorer-tags\">' +",
+  "                '<span class=\"chip\">' + escapeHtml(r.axis || 'otros') + '</span>' +",
+  "                '<span class=\"chip\">' + escapeHtml(r.instrument_type || 'unspecified') + '</span>' +",
+  "                '<span class=\"chip\">Score: ' + score + '</span>' +",
+  "                '<span class=\"chip\">Meta numérica: ' + quant + '</span>' +",
+  "                '<span class=\"chip\">Horizonte: ' + time + '</span>' +",
+  "              '</div>' +",
+  "            '</div>' +",
+  "            '<div>' + pdfLink + '</div>' +",
+  "          '</div>' +",
+  "          '<p class=\"explorer-proposal\">' + escapeHtml(truncate(r.proposal_text, 420)) + '</p>' +",
+  "          '<details class=\"explorer-details\">' +",
+  "            '<summary>Ver snippet y trazabilidad</summary>' +",
+  "            '<p class=\"explorer-snippet\">' + escapeHtml(truncate(r.source_snippet, 480)) + '</p>' +",
+  "            '<p class=\"small-muted\">doc_id: ' + escapeHtml(r.doc_id || '') + ' · proposal_id: ' + escapeHtml(r.proposal_id || '') + '</p>' +",
+  "          '</details>' +",
+  "        '</article>';",
+  "    }).join('');",
+  "",
+  "    outEl.insertAdjacentHTML('beforeend', html);",
+  "    shown += batch.length;",
+  "    btnMore.style.display = shown < ranked.length ? 'inline-flex' : 'none';",
+  "  };",
+  "",
+  "  const populateFilters = () => {",
+  "    const parties = [...new Set(rows.map((r) => r.party).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));",
+  "    const axes = [...new Set(rows.map((r) => r.axis).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));",
+  "",
+  "    partySel.innerHTML = '<option value=\"\">Todos</option>' + parties.map((p) => '<option value=\"' + escapeHtml(p) + '\">' + escapeHtml(p) + '</option>').join('');",
+  "    axisSel.innerHTML = '<option value=\"\">Todos</option>' + axes.map((a) => '<option value=\"' + escapeHtml(a) + '\">' + escapeHtml(a) + '</option>').join('');",
+  "  };",
+  "",
+  "  const runSearch = () => {",
+  "    const t0 = performance.now();",
+  "    const queryNorm = normalize(qInput.value || '');",
+  "    const tokens = queryNorm.split(' ').filter(Boolean);",
+  "    const party = partySel.value;",
+  "    const axis = axisSel.value;",
+  "    const onlyConcrete = chkConcrete.checked;",
+  "",
+  "    const filtered = rows.filter((r) => {",
+  "      if (party && r.party !== party) return false;",
+  "      if (axis && r.axis !== axis) return false;",
+  "      if (onlyConcrete && Number(r.concreteness_score || 0) < 40) return false;",
+  "      return true;",
+  "    });",
+  "",
+  "    ranked = filtered",
+  "      .map((r) => Object.assign({}, r, { _rank: scoreRow(r, queryNorm, tokens) }))",
+  "      .filter((r) => !queryNorm || r._rank > 1.7)",
+  "      .sort((a, b) => b._rank - a._rank || (Number(b.concreteness_score || 0) - Number(a.concreteness_score || 0)));",
+  "",
+  "    const ms = Math.round(performance.now() - t0);",
+  "    metaEl.textContent = ranked.length.toLocaleString('es-PE') + ' resultados en ' + ms + ' ms.';",
+  "    renderCards(true);",
+  "  };",
+  "",
+  "  if (Array.isArray(EMBEDDED_DATA)) {",
+  "    rows = EMBEDDED_DATA;",
+  "  } else if (EMBEDDED_DATA && typeof EMBEDDED_DATA === 'object') {",
+  "    const keys = Object.keys(EMBEDDED_DATA);",
+  "    const n = keys.length > 0 && Array.isArray(EMBEDDED_DATA[keys[0]]) ? EMBEDDED_DATA[keys[0]].length : 0;",
+  "    rows = Array.from({ length: n }, (_, i) => {",
+  "      const obj = {};",
+  "      keys.forEach((k) => { obj[k] = Array.isArray(EMBEDDED_DATA[k]) ? EMBEDDED_DATA[k][i] : null; });",
+  "      return obj;",
+  "    });",
+  "  } else {",
+  "    rows = [];",
+  "  }",
+  "  populateFilters();",
+  "  runSearch();",
+  "",
+  "  btnSearch.addEventListener('click', runSearch);",
+  "  btnClear.addEventListener('click', () => {",
+  "    qInput.value = '';",
+  "    partySel.value = '';",
+  "    axisSel.value = '';",
+  "    chkConcrete.checked = false;",
+  "    runSearch();",
+  "  });",
+  "  btnMore.addEventListener('click', () => renderCards(false));",
+  "  qInput.addEventListener('keydown', (ev) => {",
+  "    if (ev.key === 'Enter') runSearch();",
+  "  });",
+  "})();"
+), collapse = "\n")
+
+js_code <- sub("__DATA_PLACEHOLDER__", json_payload, js_code, fixed = TRUE)
+
+writeLines(js_code, "_site/assets/explorador.js", useBytes = TRUE)
+```
+
+```{=html}
+<div class="card-panel explorer-shell">
+  <div class="explorer-toolbar">
+    <div class="explorer-input-wrap">
+      <label for="explorer-query">Busca por palabra o frase</label>
+      <input id="explorer-query" type="text" placeholder="Ejemplo: extorsión, anemia, canon minero, 100 días">
+    </div>
+    <div class="explorer-filter-wrap">
+      <label for="explorer-party">Partido</label>
+      <select id="explorer-party">
+        <option value="">Todos</option>
+      </select>
+    </div>
+    <div class="explorer-filter-wrap">
+      <label for="explorer-axis">Eje</label>
+      <select id="explorer-axis">
+        <option value="">Todos</option>
+      </select>
+    </div>
+    <div class="explorer-check-wrap">
+      <label><input id="explorer-only-concrete" type="checkbox"> Solo propuestas con score ≥ 40</label>
+    </div>
+    <div class="explorer-actions">
+      <button id="explorer-search" type="button">Buscar</button>
+      <button id="explorer-clear" type="button" class="ghost">Limpiar</button>
+    </div>
+  </div>
+  <div id="explorer-meta" class="small-muted"></div>
+  <div id="explorer-results" class="explorer-results"></div>
+  <div class="explorer-loadmore-wrap">
+    <button id="explorer-loadmore" type="button" class="ghost" style="display:none;">Cargar más</button>
+  </div>
+</div>
+<script src="assets/explorador.js?v=20260228c"></script>
+```
+
+## Qué significa
+
+Este explorador permite pasar del agregado al texto puntual con menor fricción: buscas un tema, comparas propuestas y abres el plan fuente del partido para auditoría.
+
+## Contacto
+
+<div class="contact-row">
+  <a class="icon-link" href="mailto:analisis.planes@example.org" aria-label="Correo"><i class="bi bi-envelope-fill"></i></a>
+  <a class="icon-link" href="https://www.linkedin.com" target="_blank" rel="noopener" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>
+  <a class="icon-link" href="https://github.com" target="_blank" rel="noopener" aria-label="GitHub"><i class="bi bi-github"></i></a>
+  <a class="icon-link" href="https://x.com" target="_blank" rel="noopener" aria-label="X"><i class="bi bi-twitter-x"></i></a>
+</div>

@@ -1,0 +1,96 @@
+---
+title: "01 · Panorama de Propuestas"
+format: html
+---
+
+::: {.hero}
+<div class="hero-title">Panorama editorial del volumen programático</div>
+<div class="meta-line"><span><strong>Autor:</strong> Equipo de Ciencia de Datos</span><span><strong>Fuente:</strong> Propuestas extraídas de planes completos (sin resúmenes)</span></div>
+:::
+
+## Qué aprenderás aquí
+
+Verás cuánto propone cada partido en términos de volumen y densidad programática para distinguir planes extensos de planes realmente accionables.
+
+```{r}
+library(arrow)
+library(dplyr)
+library(plotly)
+library(htmlwidgets)
+
+propuestas <- read_parquet("../outputs/propuestas.parquet")
+party_levels <- sort(unique(propuestas$party))
+party_cols <- setNames(grDevices::hcl.colors(length(party_levels), palette = "Dynamic"), party_levels)
+
+by_party <- propuestas |>
+  group_by(party) |>
+  summarise(
+    propuestas_n = n(),
+    score_prom = mean(concreteness_score),
+    .groups = "drop"
+  ) |>
+  arrange(desc(propuestas_n))
+
+dir.create("_site/iframes", recursive = TRUE, showWarnings = FALSE)
+```
+
+```{r results='asis'}
+p1 <- plot_ly(
+  by_party,
+  x = ~reorder(party, propuestas_n),
+  y = ~propuestas_n,
+  type = "bar",
+  marker = list(color = unname(party_cols[by_party$party])),
+  customdata = ~round(score_prom, 1),
+  hovertemplate = "<b>%{x}</b><br>Propuestas: %{y}<br>Concreción: %{customdata}<extra></extra>"
+) |>
+  layout(
+    title = list(text = "Número de propuestas por partido", font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    xaxis = list(title = "", tickangle = -35, color = "#6b7280", gridcolor = "#e5e7eb"),
+    yaxis = list(title = "Propuestas", color = "#6b7280", gridcolor = "#e5e7eb")
+  )
+
+htmlwidgets::saveWidget(p1, "_site/iframes/panorama_volumen.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/panorama_volumen.html" loading="lazy"></iframe></div>')
+```
+
+```{r results='asis'}
+p2 <- plot_ly(
+  by_party,
+  x = ~propuestas_n,
+  y = ~score_prom,
+  type = "scatter",
+  mode = "markers+text",
+  text = ~party,
+  textposition = "top center",
+  marker = list(size = 10, color = unname(party_cols[by_party$party]), opacity = 0.88),
+  hovertemplate = "<b>%{text}</b><br>Propuestas: %{x}<br>Concreción: %{y:.1f}<extra></extra>"
+) |>
+  layout(
+    title = list(text = "Volumen vs concreción", font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    xaxis = list(title = "Número de propuestas", color = "#6b7280", gridcolor = "#e5e7eb"),
+    yaxis = list(title = "Concreción promedio (0-100)", color = "#6b7280", gridcolor = "#e5e7eb")
+  )
+
+htmlwidgets::saveWidget(p2, "_site/iframes/panorama_dispersion.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/panorama_dispersion.html" loading="lazy"></iframe></div>')
+```
+
+## Qué significa
+
+El panorama inicial ayuda a ubicar a cada partido en dos dimensiones: cantidad de compromisos y calidad operativa de esos compromisos. Esa combinación define la viabilidad del plan más allá del discurso.
+
+## Contacto
+
+<div class="contact-row">
+  <a class="icon-link" href="mailto:analisis.planes@example.org" aria-label="Correo"><i class="bi bi-envelope-fill"></i></a>
+  <a class="icon-link" href="https://www.linkedin.com" target="_blank" rel="noopener" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>
+  <a class="icon-link" href="https://github.com" target="_blank" rel="noopener" aria-label="GitHub"><i class="bi bi-github"></i></a>
+  <a class="icon-link" href="https://x.com" target="_blank" rel="noopener" aria-label="X"><i class="bi bi-twitter-x"></i></a>
+</div>

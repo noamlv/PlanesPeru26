@@ -1,0 +1,249 @@
+---
+title: "Metodología"
+format: html
+---
+
+::: {.hero}
+<div class="hero-title">Diseño metodológico reproducible y auditable</div>
+<div class="meta-line"><span><strong>Autor:</strong> Equipo de Ciencia de Datos</span><span><strong>Fuente:</strong> Pipeline R + Quarto en este repositorio</span></div>
+:::
+
+## Qué aprenderás aquí
+
+Revisarás el diseño metodológico completo del pipeline: extracción de propuestas, clasificación temática, scoring de concreción, tópicos y similitud semántica.
+
+## Alcance y unidad de análisis
+
+- Insumo: documentos completos en `data/plans_txt/`.
+- Exclusión aplicada: archivos cuyo nombre termina en `resumen.txt`.
+- Unidad primaria: propuesta extraída de secciones y oraciones con verbos de acción de política.
+
+## Pipeline NLP
+
+1. Segmentación en secciones
+- Heurísticas de encabezados en mayúsculas.
+- Encabezados numerados (ej. `1.2`, `III.`).
+- Agregación de líneas bajo `section_guess`.
+
+2. Extracción de propuestas
+- Reglas para listas/bullets.
+- Segmentación en oraciones y filtrado por verbos de acción (`crear`, `implementar`, `reformar`, `fortalecer`, etc.).
+- Filtro de longitud para reducir ruido.
+
+3. Clasificaciones y rasgos
+- Eje (`axis`) por diccionario temático inicial.
+- `axis_confidence` como razón entre coincidencias del eje ganador y total de coincidencias.
+- `instrument_type` por reglas de texto:
+  - `law/reform`
+  - `program`
+  - `spending/investment`
+  - `institutional change`
+  - `enforcement/punitive`
+  - `technology/data`
+- Detección de metas numéricas, horizonte temporal, población objetivo, territorio, costo, fuentes de financiamiento y evidencia citada.
+
+## Regla de Score de Concreción (0-100)
+
+Puntaje por propuesta:
+
+- +20 si `has_quant_target == TRUE`
+- +15 si `has_time_horizon == TRUE`
+- +15 si `instrument_type != "unspecified"`
+- +10 si se identifica `population_target`
+- +10 si se identifica `territory_target`
+- +10 si `mentions_cost == TRUE` o `mentions_funding_source == TRUE`
+- +10 si hay `evidence_citation_guess`
+- -10 si `vague_flag == TRUE` (lenguaje genérico sin metas, plazos ni instrumento)
+
+Cota final: `max(0, min(100, score))`.
+
+## Topic modeling
+
+- Método principal: `STM` con prevalencia por partido (`prevalence = ~ party`).
+- Unidad: propuesta.
+- `K` adaptativo según tamaño del corpus.
+- Salida: probabilidades por tópico y etiqueta interpretativa por palabras más probables.
+- Fallback técnico: clustering sobre espacio tf-idf si STM no converge.
+
+## Similitud
+
+- Embeddings:
+  - Si existe `OPENAI_API_KEY`: ruta preparada para embeddings remotos.
+  - En esta ejecución: fallback tf-idf + SVD.
+- Similitud entre partidos: coseno entre centroides de embeddings por partido.
+- Proyección 2D: UMAP (con fallback a primeras 2 dimensiones SVD si aplica).
+
+## Validación de extracción (v1)
+
+- Se genera una muestra estratificada de candidatos en `outputs/annotation/annotation_sample_v1.csv`:
+  - Positivos del extractor (`proposal_extractor`)
+  - Negativos desde oraciones del documento (`non_proposal_sentence`)
+- Plantilla de trabajo manual: `outputs/annotation/annotation_gold_v1.csv`.
+- Columnas de anotación manual:
+  - `is_proposal_gold`
+  - `axis_gold`
+  - `instrument_gold`
+- Métrica de extracción:
+  - `precision`, `recall`, `f1`, `accuracy` en `outputs/extraction_metrics_v1.csv`.
+  - Si falta oro manual suficiente, se reporta `metric_source = seed_proxy`.
+
+## Clasificación supervisada (v1)
+
+- Modelos multinomiales `glmnet` con bolsa de palabras (tf binaria/ponderada por regularización interna).
+- Dos tareas:
+  - Predicción de `axis`
+  - Predicción de `instrument_type`
+- Validación cruzada estratificada (5 folds):
+  - `outputs/axis_model_metrics_v1.csv`
+  - `outputs/axis_class_metrics_v1.csv`
+  - `outputs/instrument_model_metrics_v1.csv`
+  - `outputs/instrument_class_metrics_v1.csv`
+- Etiquetas de entrenamiento:
+  - `manual_gold` si hay volumen suficiente de anotación humana.
+  - `rule_silver` en ausencia de oro manual suficiente.
+- Predicciones finales por propuesta:
+  - `outputs/propuestas_supervised.parquet`
+  - Incluye clase predicha y probabilidad máxima por tarea.
+
+## Duplicados interpartido
+
+- Exact duplicates:
+  - normalización textual (`lower`, sin acentos, sin puntuación)
+  - coincidencia exacta de `proposal_text_norm` entre partidos distintos.
+- Near-duplicates:
+  - similitud coseno sobre embeddings locales (`tf-idf + SVD`)
+  - filtro léxico con Jaccard de tokens.
+- Salidas:
+  - `outputs/duplicates_interparty.parquet`
+  - `outputs/duplicate_clusters.parquet`
+  - `outputs/duplicates_summary_party.parquet`
+
+## Contradicciones internas por partido
+
+- Reglas de contradicción por dimensión de política:
+  - tributaria (`raise_tax` vs `cut_tax`)
+  - gasto fiscal (`expand_spending` vs `austerity_cut`)
+  - estructura estatal (`expand_state` vs `shrink_state`)
+  - recursos extractivos (`extractivist` vs `restrictive`)
+  - comercio (`open_trade` vs `protectionist`)
+  - descentralización (`decentralize` vs `centralize`)
+- Para cada dimensión/partido:
+  - selección de propuestas con mayor señal
+  - emparejamiento de posturas opuestas
+  - score de contradicción para priorización analítica.
+- Salidas:
+  - `outputs/contradictions_party.parquet`
+  - `outputs/contradictions_summary_party.parquet`
+
+## Viabilidad fiscal
+
+- Extracción de menciones monetarias y banda de impacto (`low`, `medium`, `high`).
+- Detección de:
+  - fuente de financiamiento
+  - anclajes macro-fiscales (`regla fiscal`, `déficit`, `deuda`, etc.)
+- Score de viabilidad fiscal por propuesta (0–100), con penalización por alto impacto sin financiamiento explícito.
+- Salidas:
+  - `outputs/fiscal_viability.parquet`
+  - `outputs/fiscal_viability_party.parquet`
+  - `outputs/fiscal_marco_reference.csv`
+
+## Cobertura poblacional y territorial
+
+- Diccionarios de menciones para grupos poblacionales (jóvenes, mujeres, mype, agricultores, etc.) y territoriales (Lima/Callao, sierra, selva, rural, frontera, etc.).
+- Detección por propuesta con normalización textual y matching por términos clave.
+- Métricas:
+  - `coverage_share` por partido y grupo
+  - vacíos (`blindspots`) cuando cobertura es nula o muy baja.
+- Salidas:
+  - `outputs/coverage_population.parquet`
+  - `outputs/coverage_territory.parquet`
+  - `outputs/coverage_party_summary.parquet`
+  - `outputs/coverage_blindspots_party.parquet`
+
+## Red de similitud por ejes
+
+- Nodo: partido dentro de un eje (`axis_supervised`), con tamaño según `proposals_n`.
+- Arista: similitud coseno entre centroides de embeddings partido-eje.
+- Umbral de red: `similarity >= 0.75` para visualización de conectividad sustantiva.
+- Salidas:
+  - `outputs/axis_similarity_edges.parquet`
+  - `outputs/axis_similarity_nodes.parquet`
+  - `outputs/axis_similarity_summary.parquet`
+
+## Benchmark externo y brecha de meta
+
+- Se define un catálogo de indicadores de referencia (`INEI`, `BCRP`, `MEF`/sectoriales) por eje.
+- Prioridad de fuente:
+  - `data/external/linea_base_peru_2025.csv` si existe y tiene esquema válido.
+  - Fallback reproducible `data/external/linea_base_peru_proxy.csv` (proxy explícito para no detener pipeline).
+- Para cada propuesta:
+  - mapeo al indicador más probable por eje + coincidencia semántica de palabras clave.
+  - extracción de meta numérica potencial (`proposal_target_value`) desde `numbers_found` y texto.
+  - cálculo de brecha contra meta 2031 y score de alineación (`benchmark_alignment_score`).
+- Salidas:
+  - `outputs/benchmark_indicator_reference.parquet`
+  - `outputs/benchmark_gap_proposal.parquet`
+  - `outputs/benchmark_gap_party_axis.parquet`
+  - `outputs/benchmark_gap_indicator_party.parquet`
+
+## Tablero de seguimiento ex-post (KPIs 2026-2031)
+
+- Cada propuesta se traduce en un KPI con:
+  - línea base (`baseline_year`, `baseline_for_projection`)
+  - hitos intermedios (`milestone_2027`, `milestone_2029`, `milestone_2031`)
+  - periodicidad y fórmula estimada de seguimiento.
+- Se calcula `verifiability_score` y `verifiability_tier` (`alta`, `media`, `baja`).
+- Se publica plantilla operativa para carga anual observada 2026–2031.
+- Salidas:
+  - `outputs/kpi_tracker_proposal.parquet`
+  - `outputs/kpi_dashboard_party.parquet`
+  - `outputs/kpi_dashboard_axis.parquet`
+  - `outputs/kpi_tracking_template_2026_2031.csv`
+
+## Modelo BART de implementabilidad
+
+- Objetivo:
+  - explicar la variación de un `implementation_readiness_score` (0–100).
+- Definición del score objetivo (descriptivo):
+  - `0.35 * concreteness_score`
+  - `0.30 * fiscal_viability_score`
+  - `0.20 * benchmark_alignment_score`
+  - `0.15 * verifiability_score`
+- Modelo:
+  - `dbarts::bart` (regresión), split 80/20 train-test.
+  - variables de entrada: rasgos de concreción, fiscales, benchmark y KPI (sin usar APIs externas).
+- Interpretación:
+  - importancia de variables por frecuencia de splits (`varcount`).
+  - dependencia parcial para top features.
+  - clasificación auxiliar `alto` usando umbral `q75` del score train.
+- Salidas:
+  - `outputs/bart_metrics.csv`
+  - `outputs/bart_predictions.parquet`
+  - `outputs/bart_variable_importance.parquet`
+  - `outputs/bart_partial_dependence.parquet`
+  - `outputs/bart_party_diagnostics.parquet`
+
+## Trazabilidad
+
+Cada fila de `outputs/propuestas.*` incluye obligatoriamente:
+- `doc_id`
+- `source_snippet` (ventana contextual alrededor de la propuesta)
+
+## Reproducibilidad
+
+- Comando único: `Rscript scripts/run_all.R`
+- Dependencias gestionadas con `renv`.
+- Artefactos en `outputs/` y sitio renderizado en `site/_site/`.
+
+## Qué significa
+
+El pipeline prioriza transparencia y auditabilidad sobre complejidad opaca: cada métrica puede rastrearse a texto fuente, y cada visual del sitio está ligada a un dataset intermedio reproducible.
+
+## Contacto
+
+<div class="contact-row">
+  <a class="icon-link" href="mailto:analisis.planes@example.org" aria-label="Correo"><i class="bi bi-envelope-fill"></i></a>
+  <a class="icon-link" href="https://www.linkedin.com" target="_blank" rel="noopener" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>
+  <a class="icon-link" href="https://github.com" target="_blank" rel="noopener" aria-label="GitHub"><i class="bi bi-github"></i></a>
+  <a class="icon-link" href="https://x.com" target="_blank" rel="noopener" aria-label="X"><i class="bi bi-twitter-x"></i></a>
+</div>

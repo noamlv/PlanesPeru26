@@ -1,0 +1,1048 @@
+---
+title: "Voto Informado 2026: Plan por Plan"
+format: html
+---
+
+```{r}
+library(arrow)
+library(dplyr)
+library(tidyr)
+library(plotly)
+library(htmlwidgets)
+library(stringr)
+
+set.seed(20260228)
+
+dir.create("_site/iframes", recursive = TRUE, showWarnings = FALSE)
+
+save_iframe <- function(widget, file, height = 560) {
+  htmlwidgets::saveWidget(
+    widget,
+    file.path("_site", "iframes", file),
+    selfcontained = FALSE,
+    libdir = "_site/iframes/lib"
+  )
+  cat(sprintf(
+    '<div class="inline-viz"><iframe class="viz-clean-frame" src="iframes/%s" loading="lazy" style="height:%dpx;"></iframe></div>',
+    file,
+    as.integer(height)
+  ))
+}
+
+propuestas <- read_parquet("../outputs/propuestas_supervised.parquet")
+party_axis <- read_parquet("../outputs/party_axis_scores.parquet")
+topics <- read_parquet("../outputs/topics_stm.parquet")
+umap <- read_parquet("../outputs/umap_coords.parquet")
+sim <- read_parquet("../outputs/similarity_party.parquet")
+axis_edges <- read_parquet("../outputs/axis_similarity_edges.parquet")
+axis_nodes <- read_parquet("../outputs/axis_similarity_nodes.parquet")
+axis_summary <- read_parquet("../outputs/axis_similarity_summary.parquet")
+
+blind <- read_parquet("../outputs/coverage_blindspots_party.parquet")
+pop <- read_parquet("../outputs/coverage_population.parquet")
+terr <- read_parquet("../outputs/coverage_territory.parquet")
+
+dup_sum <- read_parquet("../outputs/duplicates_summary_party.parquet")
+dup_pairs <- read_parquet("../outputs/duplicates_interparty.parquet")
+contr_sum <- read_parquet("../outputs/contradictions_summary_party.parquet")
+
+fiscal_party <- read_parquet("../outputs/fiscal_viability_party.parquet")
+
+bench_axis <- read_parquet("../outputs/benchmark_gap_party_axis.parquet")
+bench_ind <- read_parquet("../outputs/benchmark_gap_indicator_party.parquet")
+
+kpi_party <- read_parquet("../outputs/kpi_dashboard_party.parquet")
+kpi_axis <- read_parquet("../outputs/kpi_dashboard_axis.parquet")
+kpi_tracker <- read_parquet("../outputs/kpi_tracker_proposal.parquet")
+
+bart_imp <- read_parquet("../outputs/bart_variable_importance.parquet")
+bart_pred <- read_parquet("../outputs/bart_predictions.parquet")
+bart_pdp <- read_parquet("../outputs/bart_partial_dependence.parquet")
+bart_diag <- read_parquet("../outputs/bart_party_diagnostics.parquet")
+
+plot_font_stack <- "-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, 'Helvetica Neue', Arial, sans-serif"
+
+party_levels <- sort(unique(as.character(propuestas$party)))
+party_cols <- setNames(grDevices::hcl.colors(length(party_levels), palette = "Dynamic"), party_levels)
+
+kpi <- propuestas |>
+  summarise(
+    partidos = n_distinct(party),
+    propuestas_n = n(),
+    pct_cuant = mean(has_quant_target, na.rm = TRUE) * 100,
+    pct_plazo = mean(has_time_horizon, na.rm = TRUE) * 100,
+    score_prom = mean(concreteness_score, na.rm = TRUE)
+  )
+
+by_party <- propuestas |>
+  group_by(party) |>
+  summarise(
+    propuestas_n = n(),
+    score_prom = mean(concreteness_score, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  arrange(desc(propuestas_n))
+
+axis_mix <- propuestas |>
+  mutate(axis_supervised = ifelse(is.na(axis_supervised) | axis_supervised == "", "otros", axis_supervised)) |>
+  count(party, axis_supervised, name = "n") |>
+  group_by(party) |>
+  mutate(share = n / sum(n)) |>
+  ungroup()
+
+axis_global <- axis_mix |>
+  group_by(axis_supervised) |>
+  summarise(share = mean(share, na.rm = TRUE), .groups = "drop") |>
+  arrange(desc(share))
+
+axis_cols <- setNames(grDevices::hcl.colors(nrow(axis_global), palette = "Temps"), axis_global$axis_supervised)
+
+topic_dom <- topics |>
+  filter(topic_id == dominant_topic) |>
+  mutate(topic_label = str_squish(as.character(topic_label))) |>
+  group_by(topic_id, topic_label) |>
+  summarise(
+    proposals_n = n(),
+    parties_n = n_distinct(as.character(party)),
+    .groups = "drop"
+  ) |>
+  arrange(desc(proposals_n)) |>
+  slice_head(n = 12) |>
+  mutate(topic_label = str_sub(topic_label, 1, 64))
+
+sim_ord <- sim |>
+  mutate(
+    party_i = as.character(party_i),
+    party_j = as.character(party_j)
+  )
+
+umap_sample <- umap |>
+  mutate(party = as.character(party)) |>
+  group_by(party) |>
+  group_modify(~ .x[sample.int(nrow(.x), min(220, nrow(.x))), , drop = FALSE]) |>
+  ungroup()
+
+pair_avg <- axis_edges |>
+  mutate(pair_id = if_else(party_a < party_b, paste(party_a, party_b, sep = "__"), paste(party_b, party_a, sep = "__"))) |>
+  group_by(pair_id) |>
+  summarise(
+    party_x = first(if_else(party_a < party_b, party_a, party_b)),
+    party_y = first(if_else(party_a < party_b, party_b, party_a)),
+    similarity = mean(similarity, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+axis_focus <- axis_summary |>
+  arrange(desc(edges_n), desc(mean_similarity)) |>
+  slice_head(n = 1) |>
+  pull(axis)
+
+nodes_focus <- axis_nodes |>
+  filter(axis == axis_focus) |>
+  arrange(desc(node_size)) |>
+  mutate(node_size = as.numeric(node_size))
+
+if (nrow(nodes_focus) > 1) {
+  ang <- seq(0, 2 * pi, length.out = nrow(nodes_focus) + 1)[-1]
+  nodes_focus <- nodes_focus |>
+    mutate(
+      x = cos(ang),
+      y = sin(ang),
+      party = as.character(party),
+      color = unname(party_cols[as.character(party)])
+    )
+} else {
+  nodes_focus <- nodes_focus |>
+    mutate(x = 0, y = 0, party = as.character(party), color = "#111111")
+}
+
+edges_focus <- axis_edges |>
+  filter(axis == axis_focus) |>
+  arrange(desc(similarity)) |>
+  slice_head(n = min(40, nrow(axis_edges |> filter(axis == axis_focus)))) |>
+  left_join(nodes_focus |> select(party, x_a = x, y_a = y), by = c("party_a" = "party")) |>
+  left_join(nodes_focus |> select(party, x_b = x, y_b = y), by = c("party_b" = "party"))
+
+comp <- propuestas |>
+  group_by(party) |>
+  summarise(
+    score_prom = mean(concreteness_score, na.rm = TRUE),
+    pct_quant = mean(has_quant_target, na.rm = TRUE) * 100,
+    pct_time = mean(has_time_horizon, na.rm = TRUE) * 100,
+    pct_inst = mean(instrument_supervised != "unspecified", na.rm = TRUE) * 100,
+    pct_cost_fund = mean(mentions_cost | mentions_funding_source, na.rm = TRUE) * 100,
+    .groups = "drop"
+  )
+
+comp_long <- comp |>
+  pivot_longer(cols = starts_with("pct_"), names_to = "feature", values_to = "value") |>
+  mutate(
+    feature = recode(
+      feature,
+      pct_quant = "Meta cuantitativa",
+      pct_time = "Horizonte temporal",
+      pct_inst = "Instrumento definido",
+      pct_cost_fund = "Costo o financiamiento"
+    )
+  )
+
+blind_party <- blind |>
+  filter(blindspot_flag %in% c("sin_cobertura", "muy_baja")) |>
+  count(party, name = "blindspots_n") |>
+  arrange(desc(blindspots_n))
+
+pop_party <- pop |>
+  group_by(party, population_group) |>
+  summarise(coverage_share = mean(mentions_group, na.rm = TRUE), .groups = "drop")
+
+terr_party <- terr |>
+  group_by(party, territory_group) |>
+  summarise(coverage_share = mean(mentions_group, na.rm = TRUE), .groups = "drop")
+
+dup_pair <- dup_pairs |>
+  mutate(pair = if_else(party_a < party_b, paste(party_a, party_b, sep = " ↔ "), paste(party_b, party_a, sep = " ↔ "))) |>
+  count(pair, name = "duplicates_n", sort = TRUE) |>
+  slice_head(n = 15)
+
+contr_party <- contr_sum |>
+  group_by(party) |>
+  summarise(
+    contradictions_n = sum(contradictions_n, na.rm = TRUE),
+    avg_score = mean(avg_score, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  arrange(desc(contradictions_n))
+
+fiscal_rank <- fiscal_party |>
+  mutate(
+    avg_fiscal_viability = as.numeric(avg_fiscal_viability),
+    pct_alta_viabilidad = as.numeric(pct_alta_viabilidad) * 100,
+    mentions_funding_pct = as.numeric(mentions_funding_pct) * 100,
+    macro_anchor_pct = as.numeric(macro_anchor_pct) * 100
+  ) |>
+  arrange(desc(avg_fiscal_viability))
+
+fiscal_risk <- fiscal_party |>
+  arrange(desc(high_impact_without_funding_n)) |>
+  slice_head(n = 20)
+
+bench_party <- bench_axis |>
+  group_by(party) |>
+  summarise(avg_alignment_score = mean(avg_alignment_score, na.rm = TRUE), .groups = "drop") |>
+  arrange(desc(avg_alignment_score))
+
+axis_heat <- bench_axis |>
+  mutate(axis_supervised = ifelse(is.na(axis_supervised) | axis_supervised == "", "otros", axis_supervised))
+
+indicator_top <- bench_ind |>
+  group_by(indicator_name, source_institution) |>
+  summarise(
+    proposals_n = sum(proposals_n, na.rm = TRUE),
+    avg_alignment_score = mean(avg_alignment_score, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  arrange(desc(proposals_n), desc(avg_alignment_score)) |>
+  slice_head(n = 12)
+
+kpi_stack <- kpi_party |>
+  transmute(
+    party,
+    alta = kpi_alta_n,
+    media = kpi_media_n,
+    baja = kpi_baja_n
+  ) |>
+  pivot_longer(cols = c(alta, media, baja), names_to = "tier", values_to = "n")
+
+milestones_axis <- kpi_tracker |>
+  select(axis_supervised, milestone_2027, milestone_2029, milestone_2031) |>
+  pivot_longer(cols = starts_with("milestone_"), names_to = "milestone", values_to = "value") |>
+  mutate(
+    year = as.integer(gsub("milestone_", "", milestone)),
+    axis_supervised = ifelse(is.na(axis_supervised) | axis_supervised == "", "otros", axis_supervised)
+  ) |>
+  group_by(axis_supervised, year) |>
+  summarise(avg_value = mean(as.numeric(value), na.rm = TRUE), .groups = "drop") |>
+  filter(is.finite(avg_value))
+
+imp_top <- bart_imp |>
+  arrange(desc(importance_pct)) |>
+  slice_head(n = 15) |>
+  arrange(importance_pct)
+
+pred_plot <- bart_pred |>
+  mutate(actual_tier = as.character(actual_tier)) |>
+  slice_sample(n = min(3000, nrow(bart_pred)))
+
+top_features <- bart_imp |>
+  arrange(desc(importance_pct)) |>
+  slice_head(n = 6) |>
+  pull(feature)
+
+pdp_top <- bart_pdp |>
+  filter(feature %in% top_features) |>
+  group_by(feature) |>
+  arrange(feature_value, .by_group = TRUE) |>
+  mutate(x_rank = row_number()) |>
+  ungroup()
+
+party_res <- bart_diag |>
+  arrange(residual_mean) |>
+  mutate(resid_sign = if_else(residual_mean >= 0, "Positivo", "Negativo"))
+```
+
+```{=html}
+<div id="inicio"></div>
+```
+
+<div class="intro">
+  <div class="meta-line"><span><strong>Autor:</strong> Noam López Villanes</span><span><strong>Fuente:</strong> planes de gobierno oficiales presentados ante el Jurado Nacional de Elecciones (JNE)</span></div>
+  <p class="lead">En esta elección habrá muchos candidatos, muchas promesas y muy poco tiempo para leer decenas de planes completos. Esta web existe para resolver ese problema: convertir documentos largos en una lectura clara, útil y rápida para que puedas comparar mejor antes de votar.</p>
+</div>
+
+```{r results='asis'}
+cat(sprintf(
+  '<div class="kpi-inline">\n  <div class="kpi-item"><div class="kpi-label">Partidos</div><div class="kpi-value">%d</div></div>\n  <div class="kpi-item"><div class="kpi-label">Propuestas</div><div class="kpi-value">%s</div></div>\n  <div class="kpi-item"><div class="kpi-label">Meta cuantitativa</div><div class="kpi-value">%.1f%%</div></div>\n  <div class="kpi-item"><div class="kpi-label">Horizonte temporal</div><div class="kpi-value">%.1f%%</div></div>\n  <div class="kpi-item"><div class="kpi-label">Concreción promedio</div><div class="kpi-value">%.1f / 100</div></div>\n</div>',
+  kpi$partidos,
+  format(kpi$propuestas_n, big.mark = ",", scientific = FALSE),
+  kpi$pct_cuant,
+  kpi$pct_plazo,
+  kpi$score_prom
+))
+```
+
+```{=html}
+<div class="action-row">
+  <a class="btn-pill btn-dark" href="#metodos">Ver métodos</a>
+  <a class="btn-pill btn-light" href="#contacto">Contacto</a>
+</div>
+```
+
+### Qué aprenderás aquí
+
+1. Qué partidos presentan más propuestas y cómo se relaciona ese volumen con la claridad de ejecución.
+2. En qué temas se concentra la agenda y cómo se parecen o diferencian los partidos.
+3. Qué vacíos de cobertura aparecen para población y territorio.
+4. Dónde hay riesgos de coherencia interna, viabilidad fiscal y trazabilidad de metas.
+5. Qué conclusiones útiles puedes sacar, sin leer cientos de páginas.
+
+## Panorama {#panorama}
+
+Empezamos por el mapa general: cuánto propone cada partido y cómo se distribuye ese volumen en el sistema completo.
+
+```{r results='asis'}
+p_pan <- plot_ly(
+  by_party,
+  x = ~propuestas_n,
+  y = ~reorder(party, propuestas_n),
+  type = "bar",
+  orientation = "h",
+  marker = list(color = unname(party_cols[by_party$party])),
+  customdata = ~round(score_prom, 1),
+  hovertemplate = "<b>%{y}</b><br>Propuestas: %{x}<br>Concreción: %{customdata}<extra></extra>"
+) |>
+  layout(
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "Propuestas", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
+  )
+save_iframe(p_pan, "index_panorama_bar.html", height = 720)
+```
+
+```{r results='asis'}
+p_pan_scatter <- plot_ly(
+  by_party,
+  x = ~propuestas_n,
+  y = ~score_prom,
+  type = "scatter",
+  mode = "markers",
+  color = ~party,
+  colors = party_cols,
+  marker = list(size = 9, opacity = 0.82),
+  text = ~party,
+  hovertemplate = "<b>%{text}</b><br>Propuestas: %{x}<br>Concreción: %{y:.1f}<extra></extra>"
+) |>
+  layout(
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    showlegend = FALSE,
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "Número de propuestas", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "Concreción promedio", color = "#6b6b6b", gridcolor = "#ececec")
+  )
+save_iframe(p_pan_scatter, "index_panorama_scatter.html", height = 560)
+```
+
+Este doble vistazo evita confundir cantidad con calidad: un plan puede ser largo, pero no necesariamente más ejecutable.
+
+## Agenda {#agenda}
+
+Después del volumen, viene la pregunta de fondo: en qué temas insiste cada partido y dónde hay más o menos atención.
+
+```{r results='asis'}
+p_ag <- plot_ly(
+  axis_global,
+  x = ~share,
+  y = ~reorder(axis_supervised, share),
+  type = "bar",
+  orientation = "h",
+  marker = list(color = unname(axis_cols[axis_global$axis_supervised])),
+  hovertemplate = "Eje: %{y}<br>Peso promedio: %{x:.1%}<extra></extra>"
+) |>
+  layout(
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "Participación", tickformat = ".0%", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
+  )
+save_iframe(p_ag, "index_agenda_bar.html", height = 560)
+```
+
+```{r results='asis'}
+p_ag_heat <- plot_ly(
+  axis_mix,
+  x = ~axis_supervised,
+  y = ~party,
+  z = ~share,
+  type = "heatmap",
+  colors = c("#ffffff", "#d1e6f7", "#7fb3d5", "#2e86c1"),
+  hovertemplate = "Partido: %{y}<br>Eje: %{x}<br>Peso: %{z:.1%}<extra></extra>"
+) |>
+  layout(
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "", tickangle = -25, color = "#6b6b6b"),
+    yaxis = list(title = "", color = "#6b6b6b")
+  )
+save_iframe(p_ag_heat, "index_agenda_heatmap.html", height = 700)
+```
+
+```{r results='asis'}
+p_topic <- plot_ly(
+  topic_dom,
+  x = ~proposals_n,
+  y = ~reorder(topic_label, proposals_n),
+  type = "bar",
+  orientation = "h",
+  marker = list(color = "#111111"),
+  customdata = ~parties_n,
+  hovertemplate = "Tema: %{y}<br>Propuestas dominantes: %{x}<br>Partidos donde aparece: %{customdata}<extra></extra>"
+) |>
+  layout(
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "N.° de propuestas", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
+  )
+save_iframe(p_topic, "index_agenda_topics.html", height = 560)
+```
+
+Con estos tres cortes se ve no solo el tema dominante del sistema, sino también cómo cambia la mezcla temática por partido y qué tópicos se repiten más.
+
+## Similitud {#similitud}
+
+Aquí comparamos lenguaje y contenido entre partidos para detectar cercanías reales y zonas de diferenciación.
+
+```{r results='asis'}
+p_sim <- plot_ly(
+  sim_ord,
+  x = ~party_j,
+  y = ~party_i,
+  z = ~similarity,
+  type = "heatmap",
+  colors = c("#f7fbff", "#c6dbef", "#6baed6", "#3182bd", "#08519c"),
+  hovertemplate = "%{y} vs %{x}<br>Similitud: %{z:.3f}<extra></extra>"
+) |>
+  layout(
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "", tickangle = -35, color = "#6b6b6b"),
+    yaxis = list(title = "", color = "#6b6b6b")
+  )
+save_iframe(p_sim, "index_similitud_heatmap.html", height = 620)
+```
+
+```{r results='asis'}
+p_umap <- plot_ly(
+  umap_sample,
+  x = ~umap1,
+  y = ~umap2,
+  color = ~party,
+  colors = party_cols,
+  type = "scatter",
+  mode = "markers",
+  marker = list(size = 6, opacity = 0.7),
+  hovertemplate = "Partido: %{color}<br>x: %{x:.2f}<br>y: %{y:.2f}<extra></extra>"
+) |>
+  layout(
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "UMAP-1", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "UMAP-2", color = "#6b6b6b", gridcolor = "#ececec")
+  )
+save_iframe(p_umap, "index_similitud_umap.html", height = 620)
+```
+
+```{r results='asis'}
+if (nrow(edges_focus) > 0 && nrow(nodes_focus) > 1) {
+  p_red <- plot_ly()
+  p_red <- p_red |>
+    add_segments(
+      data = edges_focus,
+      x = ~x_a, y = ~y_a, xend = ~x_b, yend = ~y_b,
+      hoverinfo = "text",
+      text = ~paste0(party_a, " ↔ ", party_b, "<br>Similitud: ", round(similarity, 3)),
+      line = list(color = "#c7cdd6", width = 1.2),
+      showlegend = FALSE
+    ) |>
+    add_markers(
+      data = nodes_focus,
+      x = ~x, y = ~y,
+      marker = list(size = pmax(9, sqrt(nodes_focus$node_size) * 2.4), color = nodes_focus$color, line = list(color = "#ffffff", width = 1)),
+      text = ~paste0("Partido: ", party, "<br>Propuestas en eje: ", proposals_n, "<br>Concreción: ", round(avg_concreteness, 1)),
+      hoverinfo = "text",
+      showlegend = FALSE
+    ) |>
+    layout(
+      paper_bgcolor = "#ffffff",
+      plot_bgcolor = "#ffffff",
+      font = list(color = "#111111", family = plot_font_stack),
+      xaxis = list(title = "", showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+      yaxis = list(title = "", showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+      annotations = list(list(
+        x = 0, y = 1.16, xref = "paper", yref = "paper",
+        text = paste0("Red por eje (", axis_focus, ")"),
+        showarrow = FALSE,
+        font = list(size = 16, color = "#111111")
+      ))
+    )
+  save_iframe(p_red, "index_red_ejes_network.html", height = 640)
+} else {
+  cat('<p class="small-muted">No hubo suficiente información para dibujar la red por ejes en esta corrida.</p>')
+}
+```
+
+La similitud global muestra cercanía agregada; el mapa UMAP revela clústeres de propuestas; y la red por eje permite ver alianzas temáticas más finas que no siempre se ven en el promedio general.
+
+## Concreción {#concrecion}
+
+Con el panorama comparativo claro, esta sección aterriza la calidad operativa de las propuestas.
+
+```{r results='asis'}
+p_con <- plot_ly(
+  by_party,
+  x = ~score_prom,
+  y = ~reorder(party, score_prom),
+  type = "bar",
+  orientation = "h",
+  marker = list(color = unname(party_cols[by_party$party])),
+  hovertemplate = "<b>%{y}</b><br>Concreción: %{x:.1f}<extra></extra>"
+) |>
+  layout(
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "Score", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
+  )
+save_iframe(p_con, "index_concrecion_bar.html", height = 720)
+```
+
+```{r results='asis'}
+p_con_heat <- plot_ly(
+  comp_long,
+  x = ~feature,
+  y = ~party,
+  z = ~value,
+  type = "heatmap",
+  colors = c("#ffffff", "#f2d7d5", "#f1948a", "#c0392b"),
+  hovertemplate = "Partido: %{y}<br>Componente: %{x}<br>Valor: %{z:.1f}%<extra></extra>"
+) |>
+  layout(
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "", tickangle = -20, color = "#6b6b6b"),
+    yaxis = list(title = "", color = "#6b6b6b")
+  )
+save_iframe(p_con_heat, "index_concrecion_componentes.html", height = 700)
+```
+
+Así se distingue si un partido solo mejora en score general o si realmente sostiene ese resultado en componentes clave como metas, plazos y financiamiento.
+
+## Cobertura {#cobertura}
+
+No basta con proponer mucho: también importa a quiénes y a qué territorios está llegando el plan.
+
+```{r results='asis'}
+if (nrow(blind_party) > 0) {
+  p_cov <- plot_ly(
+    blind_party,
+    x = ~blindspots_n,
+    y = ~reorder(party, blindspots_n),
+    type = "bar",
+    orientation = "h",
+    marker = list(color = unname(party_cols[blind_party$party])),
+    hovertemplate = "<b>%{y}</b><br>Vacíos: %{x}<extra></extra>"
+  ) |>
+    layout(
+      paper_bgcolor = "#ffffff",
+      plot_bgcolor = "#ffffff",
+      font = list(color = "#111111", family = plot_font_stack),
+      xaxis = list(title = "N.° de vacíos", color = "#6b6b6b", gridcolor = "#ececec"),
+      yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
+    )
+  save_iframe(p_cov, "index_cobertura_bar.html", height = 620)
+} else {
+  cat('<p class="small-muted">No se detectaron vacíos para graficar en esta corrida.</p>')
+}
+```
+
+```{r results='asis'}
+p_pop <- plot_ly(
+  pop_party,
+  x = ~population_group,
+  y = ~party,
+  z = ~coverage_share,
+  type = "heatmap",
+  colors = c("#ffffff", "#d5f5e3", "#7dcea0", "#1e8449"),
+  hovertemplate = "Partido: %{y}<br>Grupo: %{x}<br>Cobertura: %{z:.1%}<extra></extra>"
+) |>
+  layout(
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "", tickangle = -25, color = "#6b6b6b"),
+    yaxis = list(title = "", color = "#6b6b6b")
+  )
+save_iframe(p_pop, "index_cobertura_poblacion.html", height = 700)
+```
+
+```{r results='asis'}
+p_terr <- plot_ly(
+  terr_party,
+  x = ~territory_group,
+  y = ~party,
+  z = ~coverage_share,
+  type = "heatmap",
+  colors = c("#ffffff", "#fdebd0", "#f8c471", "#d68910"),
+  hovertemplate = "Partido: %{y}<br>Territorio: %{x}<br>Cobertura: %{z:.1%}<extra></extra>"
+) |>
+  layout(
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "", tickangle = -25, color = "#6b6b6b"),
+    yaxis = list(title = "", color = "#6b6b6b")
+  )
+save_iframe(p_terr, "index_cobertura_territorio.html", height = 700)
+```
+
+El resultado combina tres capas: vacíos agregados, cobertura por grupo poblacional y cobertura por territorio. Juntas muestran si la agenda está equilibrada o deja zonas sin atención.
+
+## Coherencia {#coherencia}
+
+Además del contenido, revisamos consistencia interna: repeticiones entre partidos y choques dentro del mismo plan.
+
+```{r results='asis'}
+if (nrow(dup_sum) > 0) {
+  p_dup <- plot_ly(
+    dup_sum |> arrange(desc(duplicated_proposals_n)),
+    x = ~duplicated_proposals_n,
+    y = ~reorder(party, duplicated_proposals_n),
+    type = "bar",
+    orientation = "h",
+    marker = list(color = "#4b5563"),
+    hovertemplate = "<b>%{y}</b><br>Propuestas duplicadas: %{x}<extra></extra>"
+  ) |>
+    layout(
+      paper_bgcolor = "#ffffff",
+      plot_bgcolor = "#ffffff",
+      font = list(color = "#111111", family = plot_font_stack),
+      xaxis = list(title = "N.° de propuestas duplicadas", color = "#6b6b6b", gridcolor = "#ececec"),
+      yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
+    )
+  save_iframe(p_dup, "index_coherencia_duplicados.html", height = 520)
+}
+```
+
+```{r results='asis'}
+if (nrow(contr_party) > 0) {
+  p_contra <- plot_ly(
+    contr_party,
+    x = ~contradictions_n,
+    y = ~reorder(party, contradictions_n),
+    type = "bar",
+    orientation = "h",
+    marker = list(color = "#1f2937"),
+    customdata = ~round(avg_score, 1),
+    hovertemplate = "<b>%{y}</b><br>Contradicciones: %{x}<br>Score medio: %{customdata}<extra></extra>"
+  ) |>
+    layout(
+      paper_bgcolor = "#ffffff",
+      plot_bgcolor = "#ffffff",
+      font = list(color = "#111111", family = plot_font_stack),
+      xaxis = list(title = "N.° de contradicciones", color = "#6b6b6b", gridcolor = "#ececec"),
+      yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
+    )
+  save_iframe(p_contra, "index_coherencia_contradicciones.html", height = 520)
+}
+```
+
+Estos dos gráficos ayudan a detectar riesgos editoriales y programáticos: copias entre partidos y mensajes internos que podrían tirar en direcciones opuestas.
+
+## Viabilidad Fiscal {#viabilidad}
+
+Este bloque mira si las propuestas de alto impacto vienen acompañadas de sustento fiscal suficiente.
+
+```{r results='asis'}
+p_fiscal <- plot_ly(
+  fiscal_rank,
+  x = ~avg_fiscal_viability,
+  y = ~reorder(party, avg_fiscal_viability),
+  type = "bar",
+  orientation = "h",
+  marker = list(color = unname(party_cols[fiscal_rank$party])),
+  customdata = ~round(pct_alta_viabilidad, 1),
+  hovertemplate = "<b>%{y}</b><br>Score fiscal: %{x:.1f}<br>% alta viabilidad: %{customdata:.1f}%<extra></extra>"
+) |>
+  layout(
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "Score de viabilidad fiscal", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
+  )
+save_iframe(p_fiscal, "index_viabilidad_score.html", height = 720)
+```
+
+```{r results='asis'}
+p_fiscal_risk <- plot_ly(
+  fiscal_risk,
+  x = ~high_impact_without_funding_n,
+  y = ~reorder(party, high_impact_without_funding_n),
+  type = "bar",
+  orientation = "h",
+  marker = list(color = "#7f1d1d"),
+  hovertemplate = "<b>%{y}</b><br>Alta presión sin financiamiento: %{x}<extra></extra>"
+) |>
+  layout(
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "N.° de propuestas de alto impacto sin fuente", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
+  )
+save_iframe(p_fiscal_risk, "index_viabilidad_riesgo.html", height = 620)
+```
+
+La lectura práctica es directa: un plan puede sonar ambicioso, pero si acumula impacto sin fuente de financiamiento, su factibilidad cae.
+
+## Benchmark {#benchmark}
+
+Aquí contrastamos los planes con indicadores oficiales para evaluar qué tan conectados están con brechas reales del país.
+
+```{r results='asis'}
+p_bench <- plot_ly(
+  bench_party,
+  x = ~avg_alignment_score,
+  y = ~reorder(party, avg_alignment_score),
+  type = "bar",
+  orientation = "h",
+  marker = list(color = unname(party_cols[bench_party$party])),
+  hovertemplate = "<b>%{y}</b><br>Score benchmark: %{x:.1f}<extra></extra>"
+) |>
+  layout(
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "Alineación", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
+  )
+save_iframe(p_bench, "index_benchmark_bar.html", height = 620)
+```
+
+```{r results='asis'}
+p_bench_heat <- plot_ly(
+  axis_heat,
+  x = ~axis_supervised,
+  y = ~party,
+  z = ~avg_alignment_score,
+  type = "heatmap",
+  colors = c("#ffffff", "#d4efdf", "#82e0aa", "#229954"),
+  hovertemplate = "Partido: %{y}<br>Eje: %{x}<br>Alineación: %{z:.1f}<extra></extra>"
+) |>
+  layout(
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "", tickangle = -25, color = "#6b6b6b"),
+    yaxis = list(title = "", color = "#6b6b6b")
+  )
+save_iframe(p_bench_heat, "index_benchmark_eje_heatmap.html", height = 700)
+```
+
+```{r results='asis'}
+p_bench_ind <- plot_ly(
+  indicator_top,
+  x = ~proposals_n,
+  y = ~reorder(indicator_name, proposals_n),
+  type = "bar",
+  orientation = "h",
+  color = ~source_institution,
+  colors = c("#111111", "#374151", "#6b7280", "#9ca3af"),
+  customdata = ~avg_alignment_score,
+  hovertemplate = "Indicador: %{y}<br>N.° propuestas: %{x}<br>Alineación media: %{customdata:.1f}<extra></extra>"
+) |>
+  layout(
+    barmode = "group",
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "Propuestas vinculadas", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE),
+    legend = list(title = list(text = "Fuente"))
+  )
+save_iframe(p_bench_ind, "index_benchmark_indicadores.html", height = 620)
+```
+
+Así se observa el rendimiento general por partido, su comportamiento por eje y qué indicadores concretos están sosteniendo la comparación.
+
+## KPIs {#kpis}
+
+Este módulo traduce promesas en seguimiento: qué tan monitoreable es cada plan durante el ciclo de gobierno.
+
+```{r results='asis'}
+p_kpi <- plot_ly(
+  kpi_party,
+  x = ~verificables_pct * 100,
+  y = ~reorder(party, verificables_pct),
+  type = "bar",
+  orientation = "h",
+  marker = list(color = unname(party_cols[kpi_party$party])),
+  hovertemplate = "<b>%{y}</b><br>KPIs verificables: %{x:.1f}%<extra></extra>"
+) |>
+  layout(
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "% verificable", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
+  )
+save_iframe(p_kpi, "index_kpi_bar.html", height = 620)
+```
+
+```{r results='asis'}
+p_kpi_stack <- plot_ly(
+  kpi_stack,
+  x = ~n,
+  y = ~party,
+  color = ~tier,
+  type = "bar",
+  orientation = "h",
+  colors = c("alta" = "#111111", "media" = "#6b7280", "baja" = "#c4c7cc"),
+  hovertemplate = "Partido: %{y}<br>Nivel: %{fullData.name}<br>N: %{x}<extra></extra>"
+) |>
+  layout(
+    barmode = "stack",
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "N.° de KPIs", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE),
+    legend = list(title = list(text = "Nivel"))
+  )
+save_iframe(p_kpi_stack, "index_kpi_stack.html", height = 700)
+```
+
+```{r results='asis'}
+axis_palette <- setNames(grDevices::hcl.colors(length(unique(milestones_axis$axis_supervised)), palette = "Dynamic"), unique(milestones_axis$axis_supervised))
+
+p_kpi_line <- plot_ly(
+  milestones_axis,
+  x = ~year,
+  y = ~avg_value,
+  color = ~axis_supervised,
+  colors = axis_palette,
+  type = "scatter",
+  mode = "lines+markers",
+  hovertemplate = "Eje: %{fullData.name}<br>Año: %{x}<br>Meta promedio: %{y:.2f}<extra></extra>"
+) |>
+  layout(
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "Año", color = "#6b6b6b", gridcolor = "#ececec", tickvals = c(2027, 2029, 2031)),
+    yaxis = list(title = "Valor promedio de meta", color = "#6b6b6b", gridcolor = "#ececec"),
+    legend = list(title = list(text = "Eje"))
+  )
+save_iframe(p_kpi_line, "index_kpi_line.html", height = 560)
+```
+
+El bloque KPI permite pasar de discurso a control ciudadano: cuánto se puede medir, con qué calidad y cómo avanza en el tiempo.
+
+## BART {#bart}
+
+Esta parte final explica qué atributos empujan más la probabilidad de que una propuesta sea realmente implementable.
+
+```{r results='asis'}
+imp_cols <- grDevices::colorRampPalette(c("#d9d9d9", "#111111"))(nrow(imp_top))
+
+p_bart <- plot_ly(
+  imp_top,
+  x = ~importance_pct,
+  y = ~reorder(feature, importance_pct),
+  type = "bar",
+  orientation = "h",
+  marker = list(color = imp_cols),
+  hovertemplate = "Feature: %{y}<br>Importancia: %{x:.2f}%<extra></extra>"
+) |>
+  layout(
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "% importancia", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "", color = "#6b6b6b")
+  )
+save_iframe(p_bart, "index_bart_importance.html", height = 560)
+```
+
+```{r results='asis'}
+p_bart_fit <- plot_ly(
+  pred_plot,
+  x = ~implementation_readiness_score,
+  y = ~pred_readiness_score,
+  type = "scatter",
+  mode = "markers",
+  color = ~actual_tier,
+  colors = c("baja" = "#9ca3af", "media" = "#6b7280", "alta" = "#111111"),
+  marker = list(size = 6, opacity = 0.62),
+  hovertemplate = "Real: %{x:.1f}<br>Predicho: %{y:.1f}<br>Nivel: %{color}<extra></extra>"
+) |>
+  add_lines(
+    x = c(0, 100), y = c(0, 100),
+    line = list(color = "#9ca3af", dash = "dash"),
+    inherit = FALSE,
+    showlegend = FALSE,
+    hoverinfo = "none"
+  ) |>
+  layout(
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "Score real", color = "#6b6b6b", gridcolor = "#ececec", range = c(0, 100)),
+    yaxis = list(title = "Score predicho", color = "#6b6b6b", gridcolor = "#ececec", range = c(0, 100)),
+    legend = list(title = list(text = "Nivel real"))
+  )
+save_iframe(p_bart_fit, "index_bart_fit.html", height = 560)
+```
+
+```{r results='asis'}
+p_bart_pdp <- plot_ly(
+  pdp_top,
+  x = ~x_rank,
+  y = ~pred_mean,
+  color = ~feature,
+  colors = grDevices::hcl.colors(length(unique(pdp_top$feature)), palette = "Dynamic"),
+  type = "scatter",
+  mode = "lines+markers",
+  customdata = ~feature_value,
+  hovertemplate = "Feature: %{fullData.name}<br>Valor: %{customdata:.3f}<br>Predicción: %{y:.2f}<extra></extra>"
+) |>
+  layout(
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "Posición en grilla", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "Score predicho medio", color = "#6b6b6b", gridcolor = "#ececec"),
+    legend = list(title = list(text = "Feature"))
+  )
+save_iframe(p_bart_pdp, "index_bart_pdp.html", height = 620)
+```
+
+```{r results='asis'}
+p_bart_res <- plot_ly(
+  party_res,
+  x = ~residual_mean,
+  y = ~reorder(party, residual_mean),
+  type = "bar",
+  orientation = "h",
+  color = ~resid_sign,
+  colors = c("Negativo" = "#9ca3af", "Positivo" = "#111111"),
+  customdata = ~residual_abs_mean,
+  hovertemplate = "Partido: %{y}<br>Residual medio: %{x:.2f}<br>Error absoluto: %{customdata:.2f}<extra></extra>"
+) |>
+  layout(
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    font = list(color = "#111111", family = plot_font_stack),
+    xaxis = list(title = "Residual (real - pred)", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE),
+    legend = list(title = list(text = "Signo"))
+  )
+save_iframe(p_bart_res, "index_bart_residuals.html", height = 620)
+```
+
+Con este cierre puedes ver qué variables pesan más, cómo ajusta el modelo y dónde tiende a sobreestimar o subestimar por partido.
+
+## Métodos {#metodos}
+
+```{=html}
+<div class="method-grid">
+<div class="method-box">
+<div class="method-title">Panorama</div>
+<p>Conteo de propuestas por partido y cruce con score promedio para separar volumen de ejecutabilidad.</p>
+</div>
+<div class="method-box">
+<div class="method-title">Agenda</div>
+<p>Clasificación temática por ejes + tópicos dominantes para medir prioridad programática.</p>
+</div>
+<div class="method-box">
+<div class="method-title">Similitud y Red</div>
+<p>Similitud textual, mapa UMAP y red por ejes para identificar cercanías globales y sectoriales.</p>
+</div>
+<div class="method-box">
+<div class="method-title">Concreción</div>
+<p>Índice compuesto de metas, plazos, instrumento y financiamiento para evaluar claridad operativa.</p>
+</div>
+<div class="method-box">
+<div class="method-title">Cobertura</div>
+<p>Medición de cobertura poblacional/territorial y detección de vacíos por partido.</p>
+</div>
+<div class="method-box">
+<div class="method-title">Coherencia</div>
+<p>Búsqueda de duplicados interpartido y contradicciones internas dentro de cada plan.</p>
+</div>
+<div class="method-box">
+<div class="method-title">Viabilidad fiscal</div>
+<p>Evaluación de soporte financiero y riesgos por propuestas de alto impacto sin fuente.</p>
+</div>
+<div class="method-box">
+<div class="method-title">Benchmark, KPIs y BART</div>
+<p>Contraste externo con indicadores oficiales, capacidad de seguimiento ex-post y análisis explicativo de implementabilidad.</p>
+</div>
+</div>
+```
+
+<hr>
+
+## Contacto {#contacto}
+
+```{=html}
+<div class="contact-row">
+<a class="icon-link" href="https://x.com/noamlv" target="_blank" rel="noopener" aria-label="X"><i class="bi bi-twitter-x"></i></a>
+<a class="icon-link" href="https://www.linkedin.com/in/noamlv/" target="_blank" rel="noopener" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>
+<a class="icon-link" href="https://www.youtube.com/@lvnoam" target="_blank" rel="noopener" aria-label="YouTube"><i class="bi bi-youtube"></i></a>
+<a class="icon-link" href="https://www.instagram.com/noamlv/" target="_blank" rel="noopener" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
+<a class="icon-link" href="https://www.facebook.com/noamlv/" target="_blank" rel="noopener" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
+<a class="icon-link" href="https://scholar.google.com/citations?user=Jq-kcicAAAAJ&hl=es" target="_blank" rel="noopener" aria-label="Google Scholar"><i class="bi bi-mortarboard-fill"></i></a>
+<a class="icon-link" href="https://github.com/noamlv" target="_blank" rel="noopener" aria-label="GitHub"><i class="bi bi-github"></i></a>
+<a class="icon-link" href="https://wa.me/51996358492" target="_blank" rel="noopener" aria-label="WhatsApp"><i class="bi bi-whatsapp"></i></a>
+</div>
+```

@@ -1,0 +1,142 @@
+---
+title: "08 · Benchmark Externo y Brechas"
+format: html
+---
+
+::: {.hero}
+<div class="hero-title">Brecha programática frente a línea base macro-social</div>
+<div class="meta-line"><span><strong>Autor:</strong> Equipo de Ciencia de Datos</span><span><strong>Fuente:</strong> Benchmark proposal-level con referencias INEI/MINSA/BCRP/MEF (o proxy local documentado)</span></div>
+:::
+
+## Qué aprenderás aquí
+
+Verás qué tan alineadas están las metas propuestas por partido frente a una línea base nacional de indicadores clave y dónde se concentran las brechas.
+
+```{r}
+library(arrow)
+library(dplyr)
+library(plotly)
+library(htmlwidgets)
+
+bench <- read_parquet("../outputs/benchmark_gap_proposal.parquet")
+party_axis <- read_parquet("../outputs/benchmark_gap_party_axis.parquet")
+indicator_party <- read_parquet("../outputs/benchmark_gap_indicator_party.parquet")
+summary_tbl <- read.csv("../outputs/benchmark_kpi_summary.csv", stringsAsFactors = FALSE)
+
+party_rank <- bench |>
+  group_by(party) |>
+  summarise(
+    proposals_n = n(),
+    avg_alignment_score = mean(benchmark_alignment_score, na.rm = TRUE),
+    pct_sin_meta = mean(benchmark_status == "sin_meta_cuantificada", na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  arrange(desc(avg_alignment_score))
+
+party_levels <- sort(unique(party_rank$party))
+party_cols <- setNames(grDevices::hcl.colors(length(party_levels), palette = "Dark 3"), party_levels)
+
+axis_heat <- party_axis |>
+  mutate(axis_supervised = ifelse(is.na(axis_supervised) | axis_supervised == "", "otros", axis_supervised))
+
+indicator_top <- indicator_party |>
+  group_by(indicator_name, source_institution) |>
+  summarise(
+    avg_alignment_score = mean(avg_alignment_score, na.rm = TRUE),
+    proposals_n = sum(proposals_n, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  arrange(desc(proposals_n), desc(avg_alignment_score)) |>
+  slice_head(n = 15)
+
+benchmark_source <- summary_tbl$value[summary_tbl$metric == "benchmark_reference_source"]
+if (length(benchmark_source) == 0) benchmark_source <- "desconocido"
+
+dir.create("_site/iframes", recursive = TRUE, showWarnings = FALSE)
+```
+
+```{r results='asis'}
+p1 <- plot_ly(
+  party_rank,
+  x = ~reorder(party, avg_alignment_score),
+  y = ~avg_alignment_score,
+  type = "bar",
+  marker = list(color = unname(party_cols[party_rank$party])),
+  customdata = ~proposals_n,
+  hovertemplate = "<b>%{x}</b><br>Score promedio benchmark: %{y:.1f}<br>Propuestas: %{customdata}<extra></extra>"
+) |>
+  layout(
+    title = list(text = paste0("Alineación promedio por partido (fuente: ", benchmark_source, ")"), font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    xaxis = list(title = "", tickangle = -35, color = "#6b7280", gridcolor = "#e5e7eb"),
+    yaxis = list(title = "Score de alineación (0-100)", color = "#6b7280", gridcolor = "#e5e7eb")
+  )
+
+htmlwidgets::saveWidget(p1, "_site/iframes/benchmark_party_alignment_bar.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/benchmark_party_alignment_bar.html" loading="lazy"></iframe></div>')
+```
+
+```{r results='asis'}
+p2 <- plot_ly(
+  axis_heat,
+  x = ~axis_supervised,
+  y = ~party,
+  z = ~avg_alignment_score,
+  type = "heatmap",
+  colors = c("#FFFFFF", "#10A37F"),
+  hovertemplate = "Partido: %{y}<br>Eje: %{x}<br>Score: %{z:.1f}<extra></extra>"
+) |>
+  layout(
+    title = list(text = "Heatmap de alineación por partido y eje", font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    xaxis = list(title = "Eje", tickangle = -25, color = "#6b7280"),
+    yaxis = list(title = "Partido", color = "#6b7280")
+  )
+
+htmlwidgets::saveWidget(p2, "_site/iframes/benchmark_axis_heatmap.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/benchmark_axis_heatmap.html" loading="lazy"></iframe></div>')
+```
+
+```{r results='asis'}
+p3 <- plot_ly(
+  indicator_top,
+  x = ~reorder(indicator_name, proposals_n),
+  y = ~proposals_n,
+  type = "bar",
+  color = ~source_institution,
+  colors = c("#10A37F", "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"),
+  text = ~source_institution,
+  customdata = ~avg_alignment_score,
+  hovertemplate = "Indicador: %{x}<br>Fuente: %{text}<br>Propuestas vinculadas: %{y}<br>Score medio: %{customdata:.1f}<extra></extra>"
+) |>
+  layout(
+    barmode = "group",
+    title = list(text = "Indicadores más usados en el benchmark", font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    xaxis = list(title = "", tickangle = -35, color = "#6b7280", gridcolor = "#e5e7eb"),
+    yaxis = list(title = "N.º propuestas vinculadas", color = "#6b7280", gridcolor = "#e5e7eb"),
+    legend = list(title = list(text = "Fuente"))
+  )
+
+htmlwidgets::saveWidget(p3, "_site/iframes/benchmark_indicator_usage_bar.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/benchmark_indicator_usage_bar.html" loading="lazy"></iframe></div>')
+```
+
+## Qué significa
+
+Este módulo muestra cuán cerca o lejos están las propuestas de metas verificables frente a un marco de referencia externo; es una prueba de consistencia programática más que una evaluación causal de resultados.
+
+## Contacto
+
+<div class="contact-row">
+  <a class="icon-link" href="mailto:analisis.planes@example.org" aria-label="Correo"><i class="bi bi-envelope-fill"></i></a>
+  <a class="icon-link" href="https://www.linkedin.com" target="_blank" rel="noopener" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>
+  <a class="icon-link" href="https://github.com" target="_blank" rel="noopener" aria-label="GitHub"><i class="bi bi-github"></i></a>
+  <a class="icon-link" href="https://x.com" target="_blank" rel="noopener" aria-label="X"><i class="bi bi-twitter-x"></i></a>
+</div>

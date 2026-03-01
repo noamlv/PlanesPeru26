@@ -1,0 +1,129 @@
+---
+title: "07 · Red de Similitud por Ejes"
+format: html
+---
+
+::: {.hero}
+<div class="hero-title">Bloques de cercanía programática dentro de cada eje</div>
+<div class="meta-line"><span><strong>Autor:</strong> Equipo de Ciencia de Datos</span><span><strong>Fuente:</strong> Similitud coseno entre centroides partido-eje sobre embeddings locales</span></div>
+:::
+
+## Qué aprenderás aquí
+
+Explorarás qué partidos se parecen dentro de cada eje temático (no solo en agregado global), identificando posibles bloques programáticos.
+
+```{r}
+library(arrow)
+library(dplyr)
+library(plotly)
+library(htmlwidgets)
+if (!requireNamespace("visNetwork", quietly = TRUE)) install.packages("visNetwork", repos = "https://cloud.r-project.org")
+library(visNetwork)
+
+edges <- read_parquet("../outputs/axis_similarity_edges.parquet")
+nodes <- read_parquet("../outputs/axis_similarity_nodes.parquet")
+summary_ax <- read_parquet("../outputs/axis_similarity_summary.parquet")
+
+party_levels <- sort(unique(nodes$party))
+party_cols <- setNames(grDevices::hcl.colors(length(party_levels), palette = "Dynamic"), party_levels)
+
+dir.create("_site/iframes", recursive = TRUE, showWarnings = FALSE)
+```
+
+```{r results='asis'}
+# Heatmap agregado de similitud promedio entre partidos
+pair_avg <- edges |>
+  mutate(pair_id = if_else(party_a < party_b, paste(party_a, party_b, sep = "__"), paste(party_b, party_a, sep = "__"))) |>
+  group_by(pair_id) |>
+  summarise(
+    party_x = first(if_else(party_a < party_b, party_a, party_b)),
+    party_y = first(if_else(party_a < party_b, party_b, party_a)),
+    similarity = mean(similarity, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+p1 <- plot_ly(
+  pair_avg,
+  x = ~party_x,
+  y = ~party_y,
+  z = ~similarity,
+  type = "heatmap",
+  colors = c("#FFFFFF", "#10A37F"),
+  hovertemplate = "%{x} ↔ %{y}<br>Similitud media: %{z:.3f}<extra></extra>"
+) |>
+  layout(
+    title = list(text = "Similitud promedio entre partidos (agregada sobre ejes)", font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    xaxis = list(title = "Partido", tickangle = -35, color = "#6b7280"),
+    yaxis = list(title = "Partido", color = "#6b7280")
+  )
+
+htmlwidgets::saveWidget(p1, "_site/iframes/red_ejes_heatmap_global.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/red_ejes_heatmap_global.html" loading="lazy"></iframe></div>')
+```
+
+```{r results='asis'}
+# Redes por eje (top 4 por cantidad de aristas)
+top_axes <- summary_ax |>
+  arrange(desc(edges_n), desc(mean_similarity)) |>
+  slice_head(n = 4) |>
+  pull(axis)
+
+for (ax in top_axes) {
+  sub_edges <- edges |>
+    filter(axis == ax)
+
+  sub_nodes <- nodes |>
+    filter(axis == ax)
+
+  if (nrow(sub_edges) == 0 || nrow(sub_nodes) < 2) next
+
+  nodes_v <- sub_nodes |>
+    transmute(
+      id = party,
+      label = party,
+      value = node_size,
+      color = unname(party_cols[party]),
+      title = paste0("Partido: ", party, "<br>Propuestas eje: ", proposals_n, "<br>Concreción prom.: ", round(avg_concreteness, 1))
+    )
+
+  edges_v <- sub_edges |>
+    transmute(
+      from = party_a,
+      to = party_b,
+      width = pmax(1.5, (similarity - 0.74) * 22),
+      value = similarity,
+      title = paste0("Similitud: ", round(similarity, 3)),
+      color = "#10A37F"
+    )
+
+  g <- visNetwork(nodes_v, edges_v, width = "100%", height = "560px") |>
+    visNodes(shape = "dot", shadow = TRUE) |>
+    visEdges(smooth = TRUE, color = list(color = "#10A37F", highlight = "#0b7f62")) |>
+    visPhysics(solver = "forceAtlas2Based", stabilization = TRUE) |>
+    visInteraction(navigationButtons = TRUE, dragNodes = TRUE, hover = TRUE) |>
+    visOptions(highlightNearest = TRUE)
+
+  safe_ax <- gsub("[^a-z0-9]+", "_", tolower(ax))
+  out <- paste0("_site/iframes/red_ejes_network_", safe_ax, ".html")
+  htmlwidgets::saveWidget(g, out, selfcontained = FALSE, libdir = "_site/iframes/lib")
+
+  cat(sprintf('<h3>%s</h3>', ax))
+  cat(sprintf('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/red_ejes_network_%s.html" loading="lazy"></iframe></div>', safe_ax))
+}
+```
+
+## Qué significa
+
+La red por ejes permite detectar convergencias sectoriales específicas: dos partidos pueden estar lejos en el agregado, pero muy cerca en seguridad, economía u otro eje puntual.
+
+## Contacto
+
+<div class="contact-row">
+  <a class="icon-link" href="mailto:analisis.planes@example.org" aria-label="Correo"><i class="bi bi-envelope-fill"></i></a>
+  <a class="icon-link" href="https://www.linkedin.com" target="_blank" rel="noopener" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>
+  <a class="icon-link" href="https://github.com" target="_blank" rel="noopener" aria-label="GitHub"><i class="bi bi-github"></i></a>
+  <a class="icon-link" href="https://x.com" target="_blank" rel="noopener" aria-label="X"><i class="bi bi-twitter-x"></i></a>
+</div>

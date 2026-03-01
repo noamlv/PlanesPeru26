@@ -1,0 +1,99 @@
+---
+title: "02 · Agenda Temática"
+format: html
+---
+
+::: {.hero}
+<div class="hero-title">Radiografía de ejes prioritarios por partido</div>
+<div class="meta-line"><span><strong>Autor:</strong> Equipo de Ciencia de Datos</span><span><strong>Fuente:</strong> Clasificación temática basada en propuestas extraídas</span></div>
+:::
+
+## Qué aprenderás aquí
+
+Identificarás los ejes de política pública más priorizados por cada partido y cómo cambia su mezcla temática.
+
+```{r}
+library(arrow)
+library(dplyr)
+library(plotly)
+library(tidyr)
+library(htmlwidgets)
+
+propuestas <- read_parquet("../outputs/propuestas.parquet")
+
+axis_mix <- propuestas |>
+  count(party, axis, name = "n") |>
+  group_by(party) |>
+  mutate(share = n / sum(n)) |>
+  ungroup()
+
+axis_global <- axis_mix |>
+  group_by(axis) |>
+  summarise(share_global = mean(share), .groups = "drop") |>
+  arrange(desc(share_global))
+axis_levels <- axis_global$axis
+axis_cols <- setNames(grDevices::hcl.colors(length(axis_levels), palette = "Temps"), axis_levels)
+
+dir.create("_site/iframes", recursive = TRUE, showWarnings = FALSE)
+```
+
+```{r results='asis'}
+heat <- axis_mix |>
+  mutate(party = as.factor(party), axis = as.factor(axis))
+
+p1 <- plot_ly(
+  heat,
+  x = ~axis,
+  y = ~party,
+  z = ~share,
+  type = "heatmap",
+  colors = c("#FFFFFF", "#10A37F"),
+  hovertemplate = "Partido: %{y}<br>Eje: %{x}<br>Share: %{z:.1%}<extra></extra>"
+) |>
+  layout(
+    title = list(text = "Mapa de calor de prioridades", font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    xaxis = list(title = "Eje", color = "#6b7280"),
+    yaxis = list(title = "Partido", color = "#6b7280")
+  )
+
+htmlwidgets::saveWidget(p1, "_site/iframes/agenda_heatmap.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/agenda_heatmap.html" loading="lazy"></iframe></div>')
+```
+
+```{r results='asis'}
+p2 <- plot_ly(
+  axis_global,
+  x = ~reorder(axis, share_global),
+  y = ~share_global,
+  type = "bar",
+  marker = list(color = unname(axis_cols[axis_global$axis])),
+  hovertemplate = "Eje: %{x}<br>Peso promedio: %{y:.1%}<extra></extra>"
+) |>
+  layout(
+    title = list(text = "Peso temático promedio del sistema de partidos", font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    xaxis = list(title = "", tickangle = -30, color = "#6b7280", gridcolor = "#e5e7eb"),
+    yaxis = list(title = "Participación", tickformat = ".0%", color = "#6b7280", gridcolor = "#e5e7eb")
+  )
+
+htmlwidgets::saveWidget(p2, "_site/iframes/agenda_global.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/agenda_global.html" loading="lazy"></iframe></div>')
+```
+
+## Qué significa
+
+La agenda muestra afinidades y diferenciaciones: partidos que compiten por el mismo espacio temático y partidos que apuestan por nichos claros de política pública.
+
+## Contacto
+
+<div class="contact-row">
+  <a class="icon-link" href="mailto:analisis.planes@example.org" aria-label="Correo"><i class="bi bi-envelope-fill"></i></a>
+  <a class="icon-link" href="https://www.linkedin.com" target="_blank" rel="noopener" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>
+  <a class="icon-link" href="https://github.com" target="_blank" rel="noopener" aria-label="GitHub"><i class="bi bi-github"></i></a>
+  <a class="icon-link" href="https://x.com" target="_blank" rel="noopener" aria-label="X"><i class="bi bi-twitter-x"></i></a>
+</div>

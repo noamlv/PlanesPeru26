@@ -1,0 +1,175 @@
+---
+title: "10 · BART de Implementabilidad"
+format: html
+---
+
+::: {.hero}
+<div class="hero-title">Qué explica propuestas más implementables</div>
+<div class="meta-line"><span><strong>Autor:</strong> Equipo de Ciencia de Datos</span><span><strong>Fuente:</strong> Modelo BART (dbarts) sobre score de implementación probable</span></div>
+:::
+
+## Qué aprenderás aquí
+
+Vas a ver qué variables explican mejor la variación del score de implementabilidad, qué tan bien ajusta el modelo y cómo cambian las predicciones al mover variables clave.
+
+```{r}
+library(arrow)
+library(dplyr)
+library(plotly)
+library(htmlwidgets)
+library(readr)
+
+imp <- read_parquet("../outputs/bart_variable_importance.parquet")
+pred <- read_parquet("../outputs/bart_predictions.parquet")
+pdp <- read_parquet("../outputs/bart_partial_dependence.parquet")
+party_diag <- read_parquet("../outputs/bart_party_diagnostics.parquet")
+metrics <- read_csv("../outputs/bart_metrics.csv", show_col_types = FALSE)
+
+metrics_w <- metrics |>
+  tidyr::pivot_wider(names_from = metric, values_from = value)
+
+rmse <- round(metrics_w$rmse_test, 3)
+r2 <- round(metrics_w$r2_test, 3)
+threshold <- round(metrics_w$readiness_threshold_q75, 2)
+
+top_imp <- imp |>
+  slice_head(n = 18) |>
+  arrange(importance_pct)
+
+pred_plot <- pred |>
+  mutate(actual_tier = factor(actual_tier, levels = c("baja", "media", "alta")))
+
+pdp_top <- pdp |>
+  semi_join(imp |> slice_head(n = 6), by = "feature") |>
+  group_by(feature) |>
+  arrange(feature_value, .by_group = TRUE) |>
+  mutate(x_rank = row_number()) |>
+  ungroup()
+
+party_res <- party_diag |>
+  arrange(residual_mean) |>
+  mutate(resid_sign = if_else(residual_mean >= 0, "Positivo", "Negativo"))
+
+dir.create("_site/iframes", recursive = TRUE, showWarnings = FALSE)
+```
+
+```{r results='asis'}
+p1 <- plot_ly(
+  top_imp,
+  x = ~importance_pct,
+  y = ~reorder(feature, importance_pct),
+  type = "bar",
+  orientation = "h",
+  marker = list(color = grDevices::hcl.colors(nrow(top_imp), palette = "Dark 3")),
+  hovertemplate = "Feature: %{y}<br>Importancia: %{x:.2f}%<extra></extra>"
+) |>
+  layout(
+    title = list(text = "Importancia de variables (BART)", font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    xaxis = list(title = "% de uso en splits", color = "#6b7280", gridcolor = "#e5e7eb"),
+    yaxis = list(title = "", color = "#6b7280")
+  )
+
+htmlwidgets::saveWidget(p1, "_site/iframes/bart_importance_bar.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/bart_importance_bar.html" loading="lazy"></iframe></div>')
+```
+
+```{r results='asis'}
+p2 <- plot_ly(
+  pred_plot,
+  x = ~implementation_readiness_score,
+  y = ~pred_readiness_score,
+  type = "scatter",
+  mode = "markers",
+  color = ~actual_tier,
+  colors = c("baja" = "#ff7f0e", "media" = "#1f77b4", "alta" = "#10A37F"),
+  text = ~as.character(actual_tier),
+  marker = list(size = 7, opacity = 0.6),
+  hovertemplate = "Score real: %{x:.1f}<br>Score predicho: %{y:.1f}<br>Tier real: %{text}<extra></extra>"
+) |>
+  add_lines(
+    x = c(0, 100), y = c(0, 100),
+    line = list(color = "#6b7280", dash = "dash"),
+    inherit = FALSE,
+    showlegend = FALSE,
+    hoverinfo = "none"
+  ) |>
+  layout(
+    title = list(text = paste0("Ajuste holdout (RMSE=", rmse, ", R2=", r2, ")"), font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    xaxis = list(title = "Score real", color = "#6b7280", gridcolor = "#e5e7eb", range = c(0, 100)),
+    yaxis = list(title = "Score predicho", color = "#6b7280", gridcolor = "#e5e7eb", range = c(0, 100)),
+    legend = list(title = list(text = "Tier real"))
+  )
+
+htmlwidgets::saveWidget(p2, "_site/iframes/bart_pred_vs_actual_scatter.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/bart_pred_vs_actual_scatter.html" loading="lazy"></iframe></div>')
+```
+
+```{r results='asis'}
+p3 <- plot_ly(
+  pdp_top,
+  x = ~x_rank,
+  y = ~pred_mean,
+  color = ~feature,
+  colors = grDevices::hcl.colors(length(unique(pdp_top$feature)), palette = "Dynamic"),
+  type = "scatter",
+  mode = "lines+markers",
+  customdata = ~feature_value,
+  hovertemplate = "Feature: %{fullData.name}<br>Valor fijado: %{customdata:.3f}<br>Predicción media: %{y:.2f}<extra></extra>"
+) |>
+  layout(
+    title = list(text = "Dependencia parcial (top 6 features)", font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    xaxis = list(title = "Posición en grilla de valores", color = "#6b7280", gridcolor = "#e5e7eb"),
+    yaxis = list(title = "Score predicho medio", color = "#6b7280", gridcolor = "#e5e7eb"),
+    legend = list(title = list(text = "Feature"))
+  )
+
+htmlwidgets::saveWidget(p3, "_site/iframes/bart_partial_dependence_lines.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/bart_partial_dependence_lines.html" loading="lazy"></iframe></div>')
+```
+
+```{r results='asis'}
+p4 <- plot_ly(
+  party_res,
+  x = ~reorder(party, residual_mean),
+  y = ~residual_mean,
+  type = "bar",
+  color = ~resid_sign,
+  colors = c("Negativo" = "#1f77b4", "Positivo" = "#ff7f0e"),
+  customdata = ~residual_abs_mean,
+  hovertemplate = "Partido: %{x}<br>Residual medio: %{y:.2f}<br>Error absoluto medio: %{customdata:.2f}<extra></extra>"
+) |>
+  layout(
+    title = list(text = paste0("Sesgo medio por partido (umbral alto q75 = ", threshold, ")"), font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    xaxis = list(title = "", tickangle = -35, color = "#6b7280", gridcolor = "#e5e7eb"),
+    yaxis = list(title = "Residual (real - pred)", color = "#6b7280", gridcolor = "#e5e7eb"),
+    legend = list(title = list(text = "Signo"))
+  )
+
+htmlwidgets::saveWidget(p4, "_site/iframes/bart_party_residuals_bar.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/bart_party_residuals_bar.html" loading="lazy"></iframe></div>')
+```
+
+## Qué significa
+
+BART no se interpreta de forma causal; aquí se usa para explicar patrones de score alto/bajo y priorizar qué atributos de propuesta están más asociados a mayor implementabilidad.
+
+## Contacto
+
+<div class="contact-row">
+  <a class="icon-link" href="mailto:analisis.planes@example.org" aria-label="Correo"><i class="bi bi-envelope-fill"></i></a>
+  <a class="icon-link" href="https://www.linkedin.com" target="_blank" rel="noopener" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>
+  <a class="icon-link" href="https://github.com" target="_blank" rel="noopener" aria-label="GitHub"><i class="bi bi-github"></i></a>
+  <a class="icon-link" href="https://x.com" target="_blank" rel="noopener" aria-label="X"><i class="bi bi-twitter-x"></i></a>
+</div>

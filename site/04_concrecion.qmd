@@ -1,0 +1,99 @@
+---
+title: "04 · Concreción e Implementabilidad"
+format: html
+---
+
+::: {.hero}
+<div class="hero-title">Calidad operativa de las propuestas por partido</div>
+<div class="meta-line"><span><strong>Autor:</strong> Equipo de Ciencia de Datos</span><span><strong>Fuente:</strong> Score de concreción (reglas explícitas y trazables)</span></div>
+:::
+
+## Qué aprenderás aquí
+
+Analizarás qué partidos formulan propuestas más implementables según metas, plazos, instrumentos y evidencia.
+
+```{r}
+library(arrow)
+library(dplyr)
+library(plotly)
+library(tidyr)
+library(htmlwidgets)
+
+propuestas <- read_parquet("../outputs/propuestas.parquet")
+party_levels <- sort(unique(propuestas$party))
+party_cols <- setNames(grDevices::hcl.colors(length(party_levels), palette = "Dynamic"), party_levels)
+
+comp <- propuestas |>
+  group_by(party) |>
+  summarise(
+    score_prom = mean(concreteness_score),
+    pct_quant = mean(has_quant_target) * 100,
+    pct_time = mean(has_time_horizon) * 100,
+    pct_inst = mean(instrument_type != "unspecified") * 100,
+    pct_cost_fund = mean(mentions_cost | mentions_funding_source) * 100,
+    .groups = "drop"
+  )
+
+long_comp <- comp |>
+  pivot_longer(cols = starts_with("pct_"), names_to = "feature", values_to = "value")
+
+dir.create("_site/iframes", recursive = TRUE, showWarnings = FALSE)
+```
+
+```{r results='asis'}
+p1 <- plot_ly(
+  comp,
+  x = ~reorder(party, score_prom),
+  y = ~score_prom,
+  type = "bar",
+  marker = list(color = unname(party_cols[comp$party])),
+  hovertemplate = "<b>%{x}</b><br>Score: %{y:.1f}<extra></extra>"
+) |>
+  layout(
+    title = list(text = "Score de concreción por partido", font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    xaxis = list(title = "", tickangle = -35, color = "#6b7280", gridcolor = "#e5e7eb"),
+    yaxis = list(title = "Score (0-100)", color = "#6b7280", gridcolor = "#e5e7eb")
+  )
+
+htmlwidgets::saveWidget(p1, "_site/iframes/concrecion_score.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/concrecion_score.html" loading="lazy"></iframe></div>')
+```
+
+```{r results='asis'}
+p2 <- plot_ly(
+  long_comp,
+  x = ~feature,
+  y = ~party,
+  z = ~value,
+  type = "heatmap",
+  colors = c("#FFFFFF", "#10A37F"),
+  hovertemplate = "Partido: %{y}<br>Métrica: %{x}<br>Valor: %{z:.1f}%<extra></extra>"
+) |>
+  layout(
+    title = list(text = "Componentes de concreción", font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    xaxis = list(title = "Indicador", color = "#6b7280"),
+    yaxis = list(title = "Partido", color = "#6b7280")
+  )
+
+htmlwidgets::saveWidget(p2, "_site/iframes/concrecion_componentes.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/concrecion_componentes.html" loading="lazy"></iframe></div>')
+```
+
+## Qué significa
+
+La concreción resume capacidad de ejecución potencial, no calidad normativa. Un score alto sugiere propuestas más operables, con menos ambigüedad y mayor verificabilidad futura.
+
+## Contacto
+
+<div class="contact-row">
+  <a class="icon-link" href="mailto:analisis.planes@example.org" aria-label="Correo"><i class="bi bi-envelope-fill"></i></a>
+  <a class="icon-link" href="https://www.linkedin.com" target="_blank" rel="noopener" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>
+  <a class="icon-link" href="https://github.com" target="_blank" rel="noopener" aria-label="GitHub"><i class="bi bi-github"></i></a>
+  <a class="icon-link" href="https://x.com" target="_blank" rel="noopener" aria-label="X"><i class="bi bi-twitter-x"></i></a>
+</div>

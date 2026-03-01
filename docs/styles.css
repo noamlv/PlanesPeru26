@@ -1,0 +1,285 @@
+:root {
+  --bg: #ffffff;
+  --text: #111111;
+  --muted: #6f6f6f;
+  --line: #e5e5e2;
+  --black: #111111;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.58;
+}
+
+main.content {
+  max-width: 1240px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--text);
+  letter-spacing: -0.02em;
+  font-weight: 560;
+}
+
+h1 {
+  font-size: clamp(2.3rem, 4.3vw, 4.6rem);
+  line-height: 1.03;
+  margin-bottom: 1rem;
+}
+
+h2 {
+  font-size: clamp(1.45rem, 2.4vw, 2.4rem);
+  margin-top: 4.2rem;
+  margin-bottom: 0.85rem;
+}
+
+p,
+li,
+a,
+span,
+button,
+input,
+select,
+label,
+summary,
+div {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, "Helvetica Neue", Arial, sans-serif;
+}
+
+p,
+li {
+  color: var(--text);
+  font-size: 1.03rem;
+}
+
+a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+a:hover {
+  color: #000000;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 2.2rem 0;
+}
+
+.navbar {
+  background: #ffffff !important;
+  border-bottom: 1px solid var(--line);
+  box-shadow: none;
+}
+
+.navbar .navbar-brand {
+  font-weight: 700;
+  color: var(--text) !important;
+}
+
+.navbar .navbar-nav {
+  gap: 0.2rem;
+}
+
+.navbar .nav-link {
+  color: #5c5c5c !important;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.34rem 0.74rem !important;
+  font-weight: 470;
+}
+
+.navbar .nav-link:hover {
+  color: var(--text) !important;
+  background: #ffffff;
+  border-color: var(--line);
+}
+
+.navbar .nav-link.active {
+  color: var(--text) !important;
+  background: #ffffff;
+  border-color: var(--line);
+}
+
+.intro {
+  padding-top: 1rem;
+}
+
+.meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  color: var(--muted);
+  margin-bottom: 1.2rem;
+}
+
+.lead {
+  font-size: clamp(1.12rem, 1.35vw, 1.42rem);
+  max-width: 980px;
+}
+
+.kpi-inline {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1.4rem 0 1.9rem;
+}
+
+.kpi-item {
+  border-top: 1px solid var(--line);
+  padding-top: 0.64rem;
+}
+
+.kpi-label {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.kpi-value {
+  font-size: clamp(1.08rem, 1.9vw, 1.4rem);
+  font-weight: 560;
+}
+
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.72rem;
+  margin: 1rem 0 2rem;
+}
+
+.btn-pill {
+  border-radius: 999px;
+  padding: 0.58rem 1.08rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  border: 1px solid var(--black);
+}
+
+.btn-dark {
+  background: var(--black);
+  color: #ffffff !important;
+}
+
+.btn-dark:hover {
+  background: #000000;
+  color: #ffffff !important;
+}
+
+.btn-light {
+  background: #ffffff;
+  color: var(--black) !important;
+}
+
+.btn-light:hover {
+  background: var(--black);
+  color: #ffffff !important;
+}
+
+.section-note {
+  color: var(--muted);
+  max-width: 980px;
+}
+
+.inline-viz {
+  margin: 1rem 0 2rem;
+}
+
+.viz-clean-frame {
+  width: 100%;
+  height: 560px;
+  border: 0;
+  background: #ffffff;
+  border-radius: 14px;
+}
+
+.small-muted {
+  color: var(--muted);
+}
+
+.method-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1.2rem 0;
+}
+
+.method-box {
+  border-top: 1px solid var(--line);
+  padding-top: 0.65rem;
+}
+
+.method-title {
+  font-size: 1.03rem;
+  font-weight: 560;
+  margin-bottom: 0.42rem;
+}
+
+.contact-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.66rem;
+  margin: 1rem 0 1.2rem;
+}
+
+.icon-link {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  background: #ffffff;
+}
+
+.icon-link i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  line-height: 1;
+  font-size: 1.09rem;
+}
+
+.icon-link:hover {
+  color: #ffffff;
+  background: var(--black);
+  border-color: var(--black);
+}
+
+@media (max-width: 1120px) {
+  .kpi-inline {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .method-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  main.content {
+    max-width: 100%;
+    padding-left: 0.92rem;
+    padding-right: 0.92rem;
+  }
+  .kpi-inline {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .viz-clean-frame {
+    height: 440px;
+  }
+}

@@ -1,0 +1,89 @@
+---
+title: "03 · Similitud Programática"
+format: html
+---
+
+::: {.hero}
+<div class="hero-title">Cercanías y distancias en el espacio de propuestas</div>
+<div class="meta-line"><span><strong>Autor:</strong> Equipo de Ciencia de Datos</span><span><strong>Fuente:</strong> Embeddings locales (tf-idf + SVD) y similitud coseno entre partidos</span></div>
+:::
+
+## Qué aprenderás aquí
+
+Explorarás qué tan cerca están los partidos entre sí en contenido de propuestas y cómo se agrupan en el espacio semántico.
+
+```{r}
+library(arrow)
+library(dplyr)
+library(plotly)
+library(htmlwidgets)
+
+umap <- read_parquet("../outputs/umap_coords.parquet")
+sim <- read_parquet("../outputs/similarity_party.parquet")
+party_levels <- sort(unique(umap$party))
+party_cols <- setNames(grDevices::hcl.colors(length(party_levels), palette = "Dynamic"), party_levels)
+
+dir.create("_site/iframes", recursive = TRUE, showWarnings = FALSE)
+```
+
+```{r results='asis'}
+p1 <- plot_ly(
+  umap,
+  x = ~umap1,
+  y = ~umap2,
+  color = ~party,
+  colors = party_cols,
+  type = "scatter",
+  mode = "markers",
+  marker = list(size = 7, opacity = 0.75),
+  hovertemplate = "Partido: %{color}<br>x: %{x:.2f}<br>y: %{y:.2f}<extra></extra>"
+) |>
+  layout(
+    title = list(text = "Mapa UMAP de propuestas", font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    legend = list(title = list(text = "Partido"), font = list(size = 10, color = "#6b7280")),
+    xaxis = list(title = "UMAP-1", color = "#6b7280", gridcolor = "#e5e7eb"),
+    yaxis = list(title = "UMAP-2", color = "#6b7280", gridcolor = "#e5e7eb")
+  )
+
+htmlwidgets::saveWidget(p1, "_site/iframes/similitud_umap.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/similitud_umap.html" loading="lazy"></iframe></div>')
+```
+
+```{r results='asis'}
+p2 <- plot_ly(
+  sim,
+  x = ~party_j,
+  y = ~party_i,
+  z = ~similarity,
+  type = "heatmap",
+  colors = c("#FFFFFF", "#10A37F"),
+  hovertemplate = "%{y} vs %{x}<br>Similitud: %{z:.3f}<extra></extra>"
+) |>
+  layout(
+    title = list(text = "Similitud coseno entre partidos", font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    xaxis = list(title = "Partido j", tickangle = -35, color = "#6b7280"),
+    yaxis = list(title = "Partido i", color = "#6b7280")
+  )
+
+htmlwidgets::saveWidget(p2, "_site/iframes/similitud_heatmap.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/similitud_heatmap.html" loading="lazy"></iframe></div>')
+```
+
+## Qué significa
+
+La similitud no implica igualdad ideológica: indica cercanía en instrumentos y lenguaje programático. Distancias mayores sugieren agendas más diferenciadas o enfoques de implementación distintos.
+
+## Contacto
+
+<div class="contact-row">
+  <a class="icon-link" href="mailto:analisis.planes@example.org" aria-label="Correo"><i class="bi bi-envelope-fill"></i></a>
+  <a class="icon-link" href="https://www.linkedin.com" target="_blank" rel="noopener" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>
+  <a class="icon-link" href="https://github.com" target="_blank" rel="noopener" aria-label="GitHub"><i class="bi bi-github"></i></a>
+  <a class="icon-link" href="https://x.com" target="_blank" rel="noopener" aria-label="X"><i class="bi bi-twitter-x"></i></a>
+</div>

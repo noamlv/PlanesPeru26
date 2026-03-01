@@ -1,0 +1,51 @@
+project:
+  type: website
+  output-dir: _site
+  render:
+    - index.qmd
+
+website:
+  title: "Voto Informado 2026"
+  navbar:
+    left:
+      - text: Portada
+        href: "index.html#inicio"
+      - text: Panorama
+        href: "index.html#panorama"
+      - text: Agenda
+        href: "index.html#agenda"
+      - text: Similitud
+        href: "index.html#similitud"
+      - text: Concreción
+        href: "index.html#concrecion"
+      - text: Cobertura
+        href: "index.html#cobertura"
+      - text: Coherencia
+        href: "index.html#coherencia"
+      - text: Viabilidad
+        href: "index.html#viabilidad"
+      - text: Benchmark
+        href: "index.html#benchmark"
+      - text: KPIs
+        href: "index.html#kpis"
+      - text: BART
+        href: "index.html#bart"
+      - text: Métodos
+        href: "index.html#metodos"
+    right:
+      - text: Contacto
+        href: "index.html#contacto"
+
+format:
+  html:
+    theme: default
+    toc: false
+    smooth-scroll: true
+    css: styles.css
+    include-in-header: head.html
+    code-fold: false
+
+execute:
+  echo: false
+  warning: false
+  message: false

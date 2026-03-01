@@ -1,0 +1,144 @@
+---
+title: "09 · Tablero de Seguimiento Ex-Post"
+format: html
+---
+
+::: {.hero}
+<div class="hero-title">KPIs verificables para monitoreo 2026-2031</div>
+<div class="meta-line"><span><strong>Autor:</strong> Equipo de Ciencia de Datos</span><span><strong>Fuente:</strong> `kpi_tracker_proposal` y tableros agregados por partido/eje</span></div>
+:::
+
+## Qué aprenderás aquí
+
+Podrás identificar qué partidos proponen metas más monitoreables, en qué ejes hay mejor trazabilidad y cómo quedaría una hoja de ruta de seguimiento anual.
+
+```{r}
+library(arrow)
+library(dplyr)
+library(tidyr)
+library(plotly)
+library(htmlwidgets)
+
+kpi_tracker <- read_parquet("../outputs/kpi_tracker_proposal.parquet")
+kpi_party <- read_parquet("../outputs/kpi_dashboard_party.parquet")
+kpi_axis <- read_parquet("../outputs/kpi_dashboard_axis.parquet")
+
+party_levels <- sort(unique(kpi_party$party))
+party_cols <- setNames(grDevices::hcl.colors(length(party_levels), palette = "Set 3"), party_levels)
+
+party_stack <- kpi_party |>
+  transmute(
+    party,
+    alta = kpi_alta_n,
+    media = kpi_media_n,
+    baja = kpi_baja_n
+  ) |>
+  pivot_longer(cols = c(alta, media, baja), names_to = "tier", values_to = "n")
+
+party_order <- kpi_party |>
+  arrange(verificables_pct) |>
+  pull(party)
+
+party_stack <- party_stack |>
+  mutate(party = factor(party, levels = party_order))
+
+milestones_axis <- kpi_tracker |>
+  select(axis_supervised, milestone_2027, milestone_2029, milestone_2031) |>
+  pivot_longer(cols = starts_with("milestone_"), names_to = "milestone", values_to = "value") |>
+  mutate(
+    year = as.integer(gsub("milestone_", "", milestone)),
+    axis_supervised = ifelse(is.na(axis_supervised) | axis_supervised == "", "otros", axis_supervised)
+  ) |>
+  group_by(axis_supervised, year) |>
+  summarise(avg_value = mean(value, na.rm = TRUE), .groups = "drop")
+
+dir.create("_site/iframes", recursive = TRUE, showWarnings = FALSE)
+```
+
+```{r results='asis'}
+p1 <- plot_ly(
+  kpi_party,
+  x = ~reorder(party, verificables_pct),
+  y = ~verificables_pct * 100,
+  type = "bar",
+  marker = list(color = unname(party_cols[kpi_party$party])),
+  customdata = ~avg_verifiability_score,
+  hovertemplate = "<b>%{x}</b><br>KPIs verificables: %{y:.1f}%<br>Score medio verificabilidad: %{customdata:.1f}<extra></extra>"
+) |>
+  layout(
+    title = list(text = "Porcentaje de KPIs verificables por partido", font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    xaxis = list(title = "", tickangle = -35, color = "#6b7280", gridcolor = "#e5e7eb"),
+    yaxis = list(title = "% KPIs verificables", color = "#6b7280", gridcolor = "#e5e7eb")
+  )
+
+htmlwidgets::saveWidget(p1, "_site/iframes/kpi_party_verifiable_pct_bar.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/kpi_party_verifiable_pct_bar.html" loading="lazy"></iframe></div>')
+```
+
+```{r results='asis'}
+p2 <- plot_ly(
+  party_stack,
+  x = ~party,
+  y = ~n,
+  color = ~tier,
+  type = "bar",
+  colors = c("alta" = "#10A37F", "media" = "#1f77b4", "baja" = "#ff7f0e"),
+  hovertemplate = "Partido: %{x}<br>Nivel: %{fullData.name}<br>N: %{y}<extra></extra>"
+) |>
+  layout(
+    barmode = "stack",
+    title = list(text = "Composición de KPIs por nivel de verificabilidad", font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    xaxis = list(title = "", tickangle = -35, color = "#6b7280", gridcolor = "#e5e7eb"),
+    yaxis = list(title = "N.º KPIs", color = "#6b7280", gridcolor = "#e5e7eb"),
+    legend = list(title = list(text = "Nivel"))
+  )
+
+htmlwidgets::saveWidget(p2, "_site/iframes/kpi_party_stack_tiers.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/kpi_party_stack_tiers.html" loading="lazy"></iframe></div>')
+```
+
+```{r results='asis'}
+axis_palette <- setNames(grDevices::hcl.colors(length(unique(milestones_axis$axis_supervised)), palette = "Dynamic"), unique(milestones_axis$axis_supervised))
+
+p3 <- plot_ly(
+  milestones_axis,
+  x = ~year,
+  y = ~avg_value,
+  color = ~axis_supervised,
+  colors = axis_palette,
+  type = "scatter",
+  mode = "lines+markers",
+  hovertemplate = "Eje: %{fullData.name}<br>Año: %{x}<br>Meta intermedia promedio: %{y:.2f}<extra></extra>"
+) |>
+  layout(
+    title = list(text = "Trayectoria promedio de metas intermedias por eje", font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    xaxis = list(title = "Año", color = "#6b7280", gridcolor = "#e5e7eb", tickvals = c(2027, 2029, 2031)),
+    yaxis = list(title = "Valor meta proyectado", color = "#6b7280", gridcolor = "#e5e7eb"),
+    legend = list(title = list(text = "Eje"))
+  )
+
+htmlwidgets::saveWidget(p3, "_site/iframes/kpi_axis_milestones_line.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/kpi_axis_milestones_line.html" loading="lazy"></iframe></div>')
+```
+
+## Qué significa
+
+El tablero ex-post traduce propuestas en indicadores observables, con ruta temporal y fuente de dato; así puedes pasar de promesa textual a monitoreo verificable durante 2026-2031.
+
+## Contacto
+
+<div class="contact-row">
+  <a class="icon-link" href="mailto:analisis.planes@example.org" aria-label="Correo"><i class="bi bi-envelope-fill"></i></a>
+  <a class="icon-link" href="https://www.linkedin.com" target="_blank" rel="noopener" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>
+  <a class="icon-link" href="https://github.com" target="_blank" rel="noopener" aria-label="GitHub"><i class="bi bi-github"></i></a>
+  <a class="icon-link" href="https://x.com" target="_blank" rel="noopener" aria-label="X"><i class="bi bi-twitter-x"></i></a>
+</div>

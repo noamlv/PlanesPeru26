@@ -1,0 +1,86 @@
+[
+  {
+    "objectID": "index.html#panorama",
+    "href": "index.html#panorama",
+    "title": "Voto Informado 2026: Plan por Plan",
+    "section": "Panorama",
+    "text": "Panorama\nEmpezamos por el mapa general: cuánto propone cada partido y cómo se distribuye ese volumen en el sistema completo.\n\n\n\n\n\n\n\n\nEste doble vistazo evita confundir cantidad con calidad: un plan puede ser largo, pero no necesariamente más ejecutable."
+  },
+  {
+    "objectID": "index.html#agenda",
+    "href": "index.html#agenda",
+    "title": "Voto Informado 2026: Plan por Plan",
+    "section": "Agenda",
+    "text": "Agenda\nDespués del volumen, viene la pregunta de fondo: en qué temas insiste cada partido y dónde hay más o menos atención.\n\n\n\n\n\n\n\n\n\n\n\n\nCon estos tres cortes se ve no solo el tema dominante del sistema, sino también cómo cambia la mezcla temática por partido y qué tópicos se repiten más."
+  },
+  {
+    "objectID": "index.html#similitud",
+    "href": "index.html#similitud",
+    "title": "Voto Informado 2026: Plan por Plan",
+    "section": "Similitud",
+    "text": "Similitud\nAquí comparamos lenguaje y contenido entre partidos para detectar cercanías reales y zonas de diferenciación.\n\n\n\n\n\n\n\n\n\n\n\n\nLa similitud global muestra cercanía agregada; el mapa UMAP revela clústeres de propuestas; y la red por eje permite ver alianzas temáticas más finas que no siempre se ven en el promedio general."
+  },
+  {
+    "objectID": "index.html#concrecion",
+    "href": "index.html#concrecion",
+    "title": "Voto Informado 2026: Plan por Plan",
+    "section": "Concreción",
+    "text": "Concreción\nCon el panorama comparativo claro, esta sección aterriza la calidad operativa de las propuestas.\n\n\n\n\n\n\n\n\nAsí se distingue si un partido solo mejora en score general o si realmente sostiene ese resultado en componentes clave como metas, plazos y financiamiento."
+  },
+  {
+    "objectID": "index.html#cobertura",
+    "href": "index.html#cobertura",
+    "title": "Voto Informado 2026: Plan por Plan",
+    "section": "Cobertura",
+    "text": "Cobertura\nNo basta con proponer mucho: también importa a quiénes y a qué territorios está llegando el plan.\n\n\n\n\n\n\n\n\n\n\n\n\nEl resultado combina tres capas: vacíos agregados, cobertura por grupo poblacional y cobertura por territorio. Juntas muestran si la agenda está equilibrada o deja zonas sin atención."
+  },
+  {
+    "objectID": "index.html#coherencia",
+    "href": "index.html#coherencia",
+    "title": "Voto Informado 2026: Plan por Plan",
+    "section": "Coherencia",
+    "text": "Coherencia\nAdemás del contenido, revisamos consistencia interna: repeticiones entre partidos y choques dentro del mismo plan.\n\n\n\n\n\n\n\n\nEstos dos gráficos ayudan a detectar riesgos editoriales y programáticos: copias entre partidos y mensajes internos que podrían tirar en direcciones opuestas."
+  },
+  {
+    "objectID": "index.html#viabilidad",
+    "href": "index.html#viabilidad",
+    "title": "Voto Informado 2026: Plan por Plan",
+    "section": "Viabilidad Fiscal",
+    "text": "Viabilidad Fiscal\nEste bloque mira si las propuestas de alto impacto vienen acompañadas de sustento fiscal suficiente.\n\n\n\n\n\n\n\n\nLa lectura práctica es directa: un plan puede sonar ambicioso, pero si acumula impacto sin fuente de financiamiento, su factibilidad cae."
+  },
+  {
+    "objectID": "index.html#benchmark",
+    "href": "index.html#benchmark",
+    "title": "Voto Informado 2026: Plan por Plan",
+    "section": "Benchmark",
+    "text": "Benchmark\nAquí contrastamos los planes con indicadores oficiales para evaluar qué tan conectados están con brechas reales del país.\n\n\n\n\n\n\n\n\n\n\n\n\nAsí se observa el rendimiento general por partido, su comportamiento por eje y qué indicadores concretos están sosteniendo la comparación."
+  },
+  {
+    "objectID": "index.html#kpis",
+    "href": "index.html#kpis",
+    "title": "Voto Informado 2026: Plan por Plan",
+    "section": "KPIs",
+    "text": "KPIs\nEste módulo traduce promesas en seguimiento: qué tan monitoreable es cada plan durante el ciclo de gobierno.\n\n\n\n\n\n\n\n\n\n\n\n\nEl bloque KPI permite pasar de discurso a control ciudadano: cuánto se puede medir, con qué calidad y cómo avanza en el tiempo."
+  },
+  {
+    "objectID": "index.html#bart",
+    "href": "index.html#bart",
+    "title": "Voto Informado 2026: Plan por Plan",
+    "section": "BART",
+    "text": "BART\nEsta parte final explica qué atributos empujan más la probabilidad de que una propuesta sea realmente implementable.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nCon este cierre puedes ver qué variables pesan más, cómo ajusta el modelo y dónde tiende a sobreestimar o subestimar por partido."
+  },
+  {
+    "objectID": "index.html#metodos",
+    "href": "index.html#metodos",
+    "title": "Voto Informado 2026: Plan por Plan",
+    "section": "Métodos",
+    "text": "Métodos\n\n\nPanorama\nConteo de propuestas por partido y cruce con score promedio para separar volumen de ejecutabilidad.\n\n\nAgenda\nClasificación temática por ejes + tópicos dominantes para medir prioridad programática.\n\n\nSimilitud y Red\nSimilitud textual, mapa UMAP y red por ejes para identificar cercanías globales y sectoriales.\n\n\nConcreción\nÍndice compuesto de metas, plazos, instrumento y financiamiento para evaluar claridad operativa.\n\n\nCobertura\nMedición de cobertura poblacional/territorial y detección de vacíos por partido.\n\n\nCoherencia\nBúsqueda de duplicados interpartido y contradicciones internas dentro de cada plan.\n\n\nViabilidad fiscal\nEvaluación de soporte financiero y riesgos por propuestas de alto impacto sin fuente.\n\n\nBenchmark, KPIs y BART\nContraste externo con indicadores oficiales, capacidad de seguimiento ex-post y análisis explicativo de implementabilidad."
+  },
+  {
+    "objectID": "index.html#contacto",
+    "href": "index.html#contacto",
+    "title": "Voto Informado 2026: Plan por Plan",
+    "section": "Contacto",
+    "text": "Contacto"
+  }
+]

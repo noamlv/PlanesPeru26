@@ -1,0 +1,123 @@
+---
+title: "06 · Cobertura Poblacional y Territorial"
+format: html
+---
+
+::: {.hero}
+<div class="hero-title">Quiénes y dónde: cobertura explícita de propuestas</div>
+<div class="meta-line"><span><strong>Autor:</strong> Equipo de Ciencia de Datos</span><span><strong>Fuente:</strong> Detección de grupos poblacionales y territoriales en `propuestas_supervised`</span></div>
+:::
+
+## Qué aprenderás aquí
+
+Verás qué tan balanceada es la cobertura de grupos poblacionales y territorios por partido, y dónde aparecen vacíos temáticos.
+
+```{r}
+library(arrow)
+library(dplyr)
+library(plotly)
+library(htmlwidgets)
+
+pop <- read_parquet("../outputs/coverage_population.parquet")
+terr <- read_parquet("../outputs/coverage_territory.parquet")
+blind <- read_parquet("../outputs/coverage_blindspots_party.parquet")
+
+pop_party <- pop |>
+  group_by(party, population_group) |>
+  summarise(coverage_share = mean(mentions_group, na.rm = TRUE), .groups = "drop")
+
+terr_party <- terr |>
+  group_by(party, territory_group) |>
+  summarise(coverage_share = mean(mentions_group, na.rm = TRUE), .groups = "drop")
+
+blind_party <- blind |>
+  filter(blindspot_flag %in% c("sin_cobertura", "muy_baja")) |>
+  count(party, name = "blindspots_n") |>
+  arrange(desc(blindspots_n))
+
+party_levels <- sort(unique(pop_party$party))
+party_cols <- setNames(grDevices::hcl.colors(length(party_levels), palette = "Dynamic"), party_levels)
+
+dir.create("_site/iframes", recursive = TRUE, showWarnings = FALSE)
+```
+
+```{r results='asis'}
+p1 <- plot_ly(
+  pop_party,
+  x = ~population_group,
+  y = ~party,
+  z = ~coverage_share,
+  type = "heatmap",
+  colors = c("#FFFFFF", "#10A37F"),
+  hovertemplate = "Partido: %{y}<br>Grupo: %{x}<br>Cobertura: %{z:.1%}<extra></extra>"
+) |>
+  layout(
+    title = list(text = "Cobertura poblacional por partido", font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    xaxis = list(title = "Grupo poblacional", tickangle = -25, color = "#6b7280"),
+    yaxis = list(title = "Partido", color = "#6b7280")
+  )
+
+htmlwidgets::saveWidget(p1, "_site/iframes/cobertura_poblacional_heatmap.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/cobertura_poblacional_heatmap.html" loading="lazy"></iframe></div>')
+```
+
+```{r results='asis'}
+p2 <- plot_ly(
+  terr_party,
+  x = ~territory_group,
+  y = ~party,
+  z = ~coverage_share,
+  type = "heatmap",
+  colors = c("#FFFFFF", "#10A37F"),
+  hovertemplate = "Partido: %{y}<br>Territorio: %{x}<br>Cobertura: %{z:.1%}<extra></extra>"
+) |>
+  layout(
+    title = list(text = "Cobertura territorial por partido", font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    xaxis = list(title = "Grupo territorial", tickangle = -25, color = "#6b7280"),
+    yaxis = list(title = "Partido", color = "#6b7280")
+  )
+
+htmlwidgets::saveWidget(p2, "_site/iframes/cobertura_territorial_heatmap.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/cobertura_territorial_heatmap.html" loading="lazy"></iframe></div>')
+```
+
+```{r results='asis'}
+p3 <- plot_ly(
+  blind_party,
+  x = ~reorder(party, blindspots_n),
+  y = ~blindspots_n,
+  type = "bar",
+  marker = list(color = unname(party_cols[blind_party$party])),
+  hovertemplate = "<b>%{x}</b><br>Vacíos detectados: %{y}<extra></extra>"
+) |>
+  layout(
+    title = list(text = "Vacíos de cobertura (sin_cobertura + muy_baja)", font = list(color = "#111111")),
+    paper_bgcolor = "#FFFFFF",
+    plot_bgcolor = "#FFFFFF",
+    font = list(family = "Inter", color = "#111111"),
+    xaxis = list(title = "", tickangle = -35, color = "#6b7280", gridcolor = "#e5e7eb"),
+    yaxis = list(title = "N.º de vacíos", color = "#6b7280", gridcolor = "#e5e7eb")
+  )
+
+htmlwidgets::saveWidget(p3, "_site/iframes/cobertura_blindspots_bar.html", selfcontained = FALSE, libdir = "_site/iframes/lib")
+cat('<div class="viz-wrap"><iframe class="viz-iframe" src="iframes/cobertura_blindspots_bar.html" loading="lazy"></iframe></div>')
+```
+
+## Qué significa
+
+Una cobertura más amplia y balanceada reduce el riesgo de que el plan deje grupos o territorios sistemáticamente fuera de la agenda pública.
+
+## Contacto
+
+<div class="contact-row">
+  <a class="icon-link" href="mailto:analisis.planes@example.org" aria-label="Correo"><i class="bi bi-envelope-fill"></i></a>
+  <a class="icon-link" href="https://www.linkedin.com" target="_blank" rel="noopener" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>
+  <a class="icon-link" href="https://github.com" target="_blank" rel="noopener" aria-label="GitHub"><i class="bi bi-github"></i></a>
+  <a class="icon-link" href="https://x.com" target="_blank" rel="noopener" aria-label="X"><i class="bi bi-twitter-x"></i></a>
+</div>
