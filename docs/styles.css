@@ -485,6 +485,9 @@ section#panorama.level2 > h2 {
 }
 
 @media (max-width: 760px) {
+  .navbar {
+    position: relative;
+  }
   main.content {
     max-width: 100%;
     padding-left: 0.92rem;
@@ -499,8 +502,11 @@ section#panorama.level2 > h2 {
     display: none !important;
   }
   .navbar-toggler {
-    margin-left: 0;
-    margin-right: auto;
+    position: absolute;
+    left: 0.92rem;
+    top: 0.78rem;
+    margin: 0 !important;
+    z-index: 1100;
   }
   .navbar .collapse:not(.show) {
     display: none !important;
@@ -511,7 +517,7 @@ section#panorama.level2 > h2 {
   }
   .navbar .navbar-collapse {
     border-top: 1px solid var(--line);
-    margin-top: 0.55rem;
+    margin-top: 2.2rem;
     padding-top: 0.55rem;
     width: 100%;
   }
