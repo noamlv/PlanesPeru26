@@ -14,29 +14,11 @@ website:
       - text: Inicio
         href: "index.html"
       - text: Propuestas
-        menu:
-          - text: Cantidad y claridad
-            href: "index.html#panorama"
-          - text: Agenda
-            href: "index.html#agenda"
+        href: "index.html#panorama"
       - text: Coincidencias
-        menu:
-          - text: Similitud
-            href: "index.html#similitud"
-          - text: Cobertura
-            href: "index.html#cobertura"
+        href: "index.html#similitud"
       - text: Factibilidad
-        menu:
-          - text: Concreción
-            href: "index.html#concrecion"
-          - text: Viabilidad fiscal
-            href: "index.html#viabilidad"
-          - text: Contraste
-            href: "index.html#benchmark"
-          - text: Seguimiento
-            href: "index.html#kpis"
-          - text: Implementabilidad
-            href: "index.html#bart"
+        href: "index.html#concrecion"
       - text: Métodos
         href: "index.html#metodos"
       - text: Planes

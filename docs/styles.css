@@ -493,9 +493,14 @@ section#panorama.level2 > h2 {
   .navbar .container-fluid,
   .navbar .navbar-container {
     align-items: center;
+    justify-content: flex-start;
+  }
+  #quarto-search {
+    display: none !important;
   }
   .navbar-toggler {
-    margin-left: auto;
+    margin-left: 0;
+    margin-right: auto;
   }
   .navbar .collapse:not(.show) {
     display: none !important;
@@ -509,23 +514,6 @@ section#panorama.level2 > h2 {
     margin-top: 0.55rem;
     padding-top: 0.55rem;
     width: 100%;
-  }
-  .navbar .dropdown-toggle::after {
-    display: inline-block !important;
-    margin-left: 0.35rem;
-  }
-  .navbar .dropdown-menu {
-    box-shadow: none;
-    border: 0;
-    padding: 0.1rem 0 0.35rem;
-    position: static !important;
-    transform: none !important;
-    width: 100%;
-  }
-  .navbar .dropdown-item {
-    padding-left: 0;
-    padding-right: 0;
-    font-size: 0.93rem;
   }
   .navbar .nav-link {
     font-size: 0.97rem;
