@@ -107,6 +107,9 @@ hr {
   border-radius: 10px;
   padding: 0.28rem 0.42rem;
   box-shadow: none !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .navbar-toggler:focus {
@@ -487,15 +490,37 @@ section#panorama.level2 > h2 {
     padding-left: 0.92rem;
     padding-right: 0.92rem;
   }
+  .navbar .container-fluid,
+  .navbar .navbar-container {
+    align-items: center;
+  }
+  .navbar-toggler {
+    margin-left: auto;
+  }
+  .navbar .collapse:not(.show) {
+    display: none !important;
+  }
+  .navbar .navbar-nav {
+    width: 100%;
+    gap: 0;
+  }
   .navbar .navbar-collapse {
     border-top: 1px solid var(--line);
     margin-top: 0.55rem;
     padding-top: 0.55rem;
+    width: 100%;
+  }
+  .navbar .dropdown-toggle::after {
+    display: inline-block !important;
+    margin-left: 0.35rem;
   }
   .navbar .dropdown-menu {
     box-shadow: none;
     border: 0;
     padding: 0.1rem 0 0.35rem;
+    position: static !important;
+    transform: none !important;
+    width: 100%;
   }
   .navbar .dropdown-item {
     padding-left: 0;

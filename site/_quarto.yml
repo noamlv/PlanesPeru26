@@ -16,13 +16,13 @@ website:
             href: "index.html#panorama"
           - text: Agenda
             href: "index.html#agenda"
-      - text: Comparación
+      - text: Coincidencias
         menu:
           - text: Similitud
             href: "index.html#similitud"
           - text: Cobertura
             href: "index.html#cobertura"
-      - text: Ejecución
+      - text: Factibilidad
         menu:
           - text: Concreción
             href: "index.html#concrecion"
