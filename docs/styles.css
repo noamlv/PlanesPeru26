@@ -784,8 +784,8 @@ section#panorama.level2 > h2 {
   gap: 1rem;
   align-items: center;
   padding: 1.1rem 1.15rem;
-  border: 1px solid var(--line);
-  border-radius: 18px;
+  border: none;
+  border-radius: 0;
   background: #ffffff;
   min-height: 154px;
 }
@@ -816,6 +816,16 @@ section#panorama.level2 > h2 {
   color: var(--text);
 }
 
+.plan-card-party-link {
+  display: inline-block;
+  text-decoration: none;
+}
+
+.plan-card-party-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
 .plan-card-candidate {
   font-size: 0.94rem;
   line-height: 1.45;
@@ -826,6 +836,11 @@ section#panorama.level2 > h2 {
 .plan-card-link {
   min-width: 0;
   padding-inline: 0.9rem;
+}
+
+.lead-page-simple {
+  margin: 0.35rem auto 0;
+  max-width: 760px;
 }
 
 .plans-source {
