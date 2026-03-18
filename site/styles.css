@@ -367,7 +367,7 @@ section#panorama.level2 > h2 {
 }
 
 .method-box {
-  border: 1px solid var(--line);
+  border: none;
   border-radius: 14px;
   background: #ffffff;
   overflow: hidden;
@@ -453,7 +453,7 @@ section#panorama.level2 > h2 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--line);
+  border: none;
   border-radius: 999px;
   color: var(--text);
   background: #ffffff;
@@ -593,7 +593,7 @@ section#panorama.level2 > h2 {
 }
 
 .ai-explorer {
-  border: 1px solid var(--line);
+  border: none;
   border-radius: 18px;
   padding: 1rem;
   background: #ffffff;
@@ -608,7 +608,7 @@ section#panorama.level2 > h2 {
 }
 
 .ai-prompt-chip {
-  border: 1px solid var(--line);
+  border: none;
   border-radius: 999px;
   background: #ffffff;
   color: var(--text);
@@ -644,7 +644,7 @@ section#panorama.level2 > h2 {
 .ai-field input,
 .ai-field select {
   width: 100%;
-  border: 1px solid var(--line);
+  border: none;
   border-radius: 14px;
   padding: 0.68rem 0.8rem;
   font-size: 0.95rem;
@@ -669,7 +669,7 @@ section#panorama.level2 > h2 {
 }
 
 .ai-result-card {
-  border: 1px solid var(--line);
+  border: none;
   border-radius: 18px;
   padding: 0.95rem;
   background: #ffffff;
@@ -741,7 +741,7 @@ section#panorama.level2 > h2 {
 
 .ai-command {
   margin: 0.5rem 0 0;
-  border: 1px solid var(--line);
+  border: none;
   border-radius: 14px;
   padding: 0.82rem 0.92rem;
   background: #fafafa;

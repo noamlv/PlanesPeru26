@@ -2174,7 +2174,7 @@ save_iframe(p_bart_res, "index_bart_residuals.html", height = 620)
 ## Métodos {#metodos}
 
 ```{=html}
-<p class="methods-overview">Aquí reunimos, de manera transparente, las distintas herramientas de análisis de texto que se aplicaron a los planes de gobierno presentados ante el Jurado Nacional de Elecciones. La idea es que puedas ver no solo los resultados, sino también cómo se construyó cada lectura comparativa del sitio. Debajo encontrarás, sección por sección, qué se hizo, con qué enfoque y cómo conviene interpretar cada resultado.</p>
+<p class="methods-overview">Aquí reunimos las distintas herramientas de análisis de texto que se aplicaron a los planes de gobierno presentados ante el Jurado Nacional de Elecciones. Debajo encontrarás qué se hizo, con qué enfoque y cómo conviene interpretar cada resultado.</p>
 <div class="method-grid">
 <details class="method-box" open>
 <summary class="method-summary">Procesamiento</summary>
