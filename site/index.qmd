@@ -207,6 +207,15 @@ bart_pred <- apply_party_labels(bart_pred)
 bart_pdp <- apply_party_labels(bart_pdp)
 bart_diag <- apply_party_labels(bart_diag)
 
+propuestas_strict_path <- "../outputs/propuestas_strict.parquet"
+if (file.exists(propuestas_strict_path)) {
+  propuestas_strict <- read_parquet(propuestas_strict_path) |>
+    apply_party_labels()
+} else {
+  propuestas_strict <- propuestas |>
+    filter(tokens_n >= 10, instrument_type != "Sin tipo explícito" | has_quant_target | has_time_horizon)
+}
+
 dir.create("assets", recursive = TRUE, showWarnings = FALSE)
 ai_explorer_df <- propuestas |>
   transmute(
@@ -425,7 +434,7 @@ build_network_panel_html <- function(axis_name, nodes_df, edges_df) {
   )
 }
 
-kpi <- propuestas |>
+kpi <- propuestas_strict |>
   summarise(
     partidos = n_distinct(party),
     propuestas_n = n(),
@@ -1356,7 +1365,7 @@ bart_res_msg <- if (nrow(bart_res_focus) == 1) {
 
 ```{r results='asis'}
 cat(sprintf(
-  '<div class="kpi-inline">\n  <div class="kpi-item"><div class="kpi-label">Planes</div><div class="kpi-value">%d</div><div class="kpi-desc">Se revisaron los planes de gobierno de cada partido</div></div>\n  <div class="kpi-item"><div class="kpi-label">Propuestas</div><div class="kpi-value">%s</div><div class="kpi-desc">Total de propuestas identificadas en los planes procesados</div></div>\n  <div class="kpi-item"><div class="kpi-label">Metas claras</div><div class="kpi-value">%.1f%%</div><div class="kpi-desc">Propuestas que incluyen una meta concreta y medible</div></div>\n  <div class="kpi-item"><div class="kpi-label">Plazo definido</div><div class="kpi-value">%.1f%%</div><div class="kpi-desc">Propuestas que indican un plazo explícito para cumplirse</div></div>\n  <div class="kpi-item"><div class="kpi-label">Claridad</div><div class="kpi-value">%.1f</div><div class="kpi-desc">Nivel promedio de claridad operativa de las propuestas</div></div>\n</div>',
+  '<div class="kpi-inline">\n  <div class="kpi-item"><div class="kpi-label">Planes</div><div class="kpi-value">%d</div><div class="kpi-desc">Se revisaron los planes de gobierno de cada partido</div></div>\n  <div class="kpi-item"><div class="kpi-label">Propuestas operativas</div><div class="kpi-value">%s</div><div class="kpi-desc">Acciones con al menos una señal operativa clara</div></div>\n  <div class="kpi-item"><div class="kpi-label">Metas claras</div><div class="kpi-value">%.1f%%</div><div class="kpi-desc">Propuestas que incluyen una meta concreta y medible</div></div>\n  <div class="kpi-item"><div class="kpi-label">Plazo definido</div><div class="kpi-value">%.1f%%</div><div class="kpi-desc">Propuestas que indican un plazo explícito para cumplirse</div></div>\n  <div class="kpi-item"><div class="kpi-label">Claridad</div><div class="kpi-value">%.1f</div><div class="kpi-desc">Nivel promedio de claridad operativa de las propuestas</div></div>\n</div>',
   kpi$partidos,
   format(kpi$propuestas_n, big.mark = ",", scientific = FALSE),
   kpi$pct_cuant,
@@ -1375,7 +1384,7 @@ cat(sprintf(
 
 ## Cantidad y claridad {#panorama}
 
-En esta vista comparamos cuántas propuestas contiene cada plan y qué nivel de concreción promedio alcanza. La lectura conjunta permite distinguir entre planes extensos y planes realmente utilizables, sin confundir volumen con claridad. Para conocer cómo se ha calculado la concreción, revisa la sección de Métodos.
+En esta vista comparamos cuántos enunciados programáticos detectó el extractor en cada plan y qué nivel de concreción promedio alcanzan. La lectura conjunta permite distinguir entre planes extensos y planes realmente utilizables, sin confundir volumen con claridad. Para conocer cómo se ha calculado la concreción, revisa la sección de Métodos.
 
 <div class="chart-title">Qué partidos proponen más</div>
 
@@ -2177,6 +2186,7 @@ save_iframe(p_bart_res, "index_bart_residuals.html", height = 620)
 <li>Clasificación: asignación de eje temático, tipo de intervención y variables como meta numérica, plazo, población objetivo, territorio, costo, fuente y evidencia.</li>
 <li>Análisis comparativo: conteo, similitud semántica, tópicos, cobertura, viabilidad fiscal, contraste con datos oficiales, seguimiento e implementabilidad.</li>
 </ul>
+<p>Hoy conviven dos universos de análisis. El universo amplio reúne <strong>4,084 enunciados detectados</strong> por el extractor; el subconjunto más conservador reúne <strong>2,742 propuestas operativas</strong>, definidas como enunciados de al menos 10 palabras con una señal operativa clara, como tipo de intervención, meta o plazo. La portada usa este subconjunto estricto; en cambio, las secciones de Cantidad y claridad, Agenda, Similitud, Concreción, Cobertura, Viabilidad fiscal, Contraste con datos oficiales, Seguimiento e Implementabilidad siguen trabajando sobre el universo amplio.</p>
 <p>Como marco general del análisis automático de texto en ciencia política y de sus etapas de validación, seguimos el enfoque <em>text as data</em> (<a href="https://doi.org/10.1093/pan/mps028" target="_blank" rel="noopener">Grimmer y Stewart, 2013</a>).</p>
 </div>
 </details>
