@@ -9,6 +9,7 @@ library(dplyr)
 library(tidyr)
 library(plotly)
 library(htmlwidgets)
+library(jsonlite)
 library(stringr)
 
 set.seed(20260228)
@@ -103,6 +104,40 @@ party_pretty <- function(x) {
   ifelse(is.na(out), x, out)
 }
 
+axis_pretty <- function(x) {
+  key <- normalize_party(x)
+  pretty_map <- c(
+    "ambiente" = "Ambiente",
+    "economia" = "Economía",
+    "educacion" = "Educación",
+    "empleo" = "Empleo",
+    "energia" = "Energía",
+    "infraestructura" = "Infraestructura",
+    "institucionalidad" = "Institucionalidad",
+    "otros" = "Otros",
+    "salud" = "Salud",
+    "seguridad" = "Seguridad",
+    "social" = "Social"
+  )
+  out <- unname(pretty_map[key])
+  ifelse(is.na(out), x, out)
+}
+
+instrument_pretty <- function(x) {
+  key <- normalize_party(x)
+  pretty_map <- c(
+    "law reform" = "Ley o reforma",
+    "program" = "Programa",
+    "spending investment" = "Gasto o inversión",
+    "institutional change" = "Cambio institucional",
+    "enforcement punitive" = "Fiscalización o sanción",
+    "technology data" = "Tecnología o datos",
+    "unspecified" = "Sin tipo explícito"
+  )
+  out <- unname(pretty_map[key])
+  ifelse(is.na(out), x, out)
+}
+
 apply_party_labels <- function(df) {
   if ("party" %in% names(df)) df$party <- party_pretty(df$party)
   if ("party_i" %in% names(df)) df$party_i <- party_pretty(df$party_i)
@@ -171,6 +206,29 @@ bart_imp <- apply_party_labels(bart_imp)
 bart_pred <- apply_party_labels(bart_pred)
 bart_pdp <- apply_party_labels(bart_pdp)
 bart_diag <- apply_party_labels(bart_diag)
+
+dir.create("assets", recursive = TRUE, showWarnings = FALSE)
+ai_explorer_df <- propuestas |>
+  transmute(
+    party = as.character(party),
+    doc_id = as.character(doc_id),
+    proposal_id = as.character(proposal_id),
+    axis = axis_pretty(coalesce(axis, axis_supervised, "otros")),
+    proposal_text = str_squish(as.character(proposal_text)),
+    source_snippet = str_squish(as.character(source_snippet)),
+    instrument_type = instrument_pretty(as.character(coalesce(instrument_type, instrument_supervised, "unspecified"))),
+    concreteness_score = round(as.numeric(coalesce(concreteness_score, 0)), 1),
+    has_quant_target = as.logical(coalesce(has_quant_target, FALSE)),
+    has_time_horizon = as.logical(coalesce(has_time_horizon, FALSE))
+  )
+jsonlite::write_json(
+  ai_explorer_df,
+  path = file.path("assets", "ai_explorer_data.json"),
+  auto_unbox = TRUE,
+  pretty = FALSE,
+  dataframe = "rows",
+  na = "null"
+)
 
 plot_font_stack <- "-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, 'Helvetica Neue', Arial, sans-serif"
 
@@ -2104,6 +2162,54 @@ save_iframe(p_bart_res, "index_bart_residuals.html", height = 620)
 
 <p class="chart-analysis">`r bart_res_msg`</p>
 
+## Explorar con IA {#explorar-ia}
+
+Esta sección añade una capa de exploración asistida sobre los planes ya procesados. En la web pública funciona como búsqueda guiada con trazabilidad: localiza las propuestas más cercanas a tu pregunta y te devuelve los fragmentos fuente para que puedas revisarlos directamente. Si quieres una respuesta conversacional en lenguaje natural, más abajo te dejamos activada la versión local con `ellmer`.
+
+<div class="chart-title">Haz una pregunta sobre los planes</div>
+
+```{=html}
+<section class="ai-explorer">
+  <div class="ai-helper-row">
+    <button class="ai-prompt-chip" type="button" data-prompt="¿Qué proponen los partidos sobre seguridad ciudadana?">Seguridad ciudadana</button>
+    <button class="ai-prompt-chip" type="button" data-prompt="¿Qué diferencias hay entre Fuerza Popular y Renovación Popular en economía?">Comparar partidos</button>
+    <button class="ai-prompt-chip" type="button" data-prompt="¿Qué planes mencionan canon, APP u obras por impuestos?">Canon y APP</button>
+    <button class="ai-prompt-chip" type="button" data-prompt="¿Qué propuestas hablan de salud mental o atención primaria?">Salud</button>
+  </div>
+  <div class="ai-controls">
+    <div class="ai-field ai-field-query">
+      <label for="ai-query">Pregunta o tema</label>
+      <input id="ai-query" type="text" placeholder="Escribe una pregunta, un tema o una comparación" />
+    </div>
+    <div class="ai-field">
+      <label for="ai-party">Partido</label>
+      <select id="ai-party">
+        <option value="">Todos</option>
+      </select>
+    </div>
+    <div class="ai-field">
+      <label for="ai-axis">Tema</label>
+      <select id="ai-axis">
+        <option value="">Todos</option>
+      </select>
+    </div>
+    <button id="ai-search-btn" class="btn-pill btn-dark" type="button">Explorar</button>
+    <button id="ai-clear-btn" class="btn-pill btn-light" type="button">Limpiar</button>
+  </div>
+  <p class="small-muted ai-mode-note">En la web pública esta caja funciona como búsqueda asistida. La versión conversacional con IA corre en local para no exponer claves en el sitio.</p>
+  <div id="ai-meta" class="small-muted ai-meta"></div>
+  <div id="ai-results" class="ai-results"></div>
+  <div class="ai-local-box">
+    <div class="ai-local-title">Versión local con ellmer</div>
+    <p>Si activas una API key, el explorador local recupera primero las propuestas más relevantes y luego usa <code>ellmer</code> para redactar una respuesta breve, en español, citando partido, <code>doc_id</code> y <code>proposal_id</code>.</p>
+    <pre class="ai-command"><code>Rscript scripts/explorar_ia_app.R</code></pre>
+  </div>
+</section>
+<script src="assets/ai_explorer.js"></script>
+```
+
+<p class="chart-analysis">La versión pública ya te deja ubicar propuestas por pregunta, partido o tema y revisar su trazabilidad. Cuando actives la versión local con IA, `ellmer` tomará esas mismas fuentes para devolverte una síntesis narrativa, siempre apoyada en los fragmentos recuperados.</p>
+
 ## Métodos {#metodos}
 
 ```{=html}
@@ -2120,6 +2226,13 @@ save_iframe(p_bart_res, "index_bart_residuals.html", height = 620)
 <li>Análisis comparativo: conteo, similitud semántica, tópicos, cobertura, viabilidad fiscal, contraste con datos oficiales, seguimiento e implementabilidad.</li>
 </ul>
 <p>Como marco general del análisis automático de texto en ciencia política y de sus etapas de validación, seguimos el enfoque <em>text as data</em> (<a href="https://doi.org/10.1093/pan/mps028" target="_blank" rel="noopener">Grimmer y Stewart, 2013</a>).</p>
+</div>
+</details>
+<details class="method-box">
+<summary class="method-summary">Explorar con IA</summary>
+<div class="method-content">
+<p>Este módulo combina dos pasos. Primero recupera propuestas relevantes desde la base ya estructurada, usando una búsqueda por coincidencia de términos, tema, partido y señales de claridad. Después, en la versión local, esa evidencia pasa a <code>ellmer</code>, que redacta una respuesta breve en español sin salir de las fuentes recuperadas.</p>
+<p>La versión pública del sitio conserva solo la búsqueda asistida para no exponer credenciales en GitHub Pages. La versión local abre una app en <code>shiny</code> y, si encuentra credenciales activas, usa <code>ellmer</code> para sintetizar la respuesta con citas al partido, <code>doc_id</code> y <code>proposal_id</code>. El principio de fondo sigue siendo el mismo del resto del proyecto: usar texto como dato y mantener trazabilidad de cada afirmación (<a href="https://doi.org/10.1093/pan/mps028" target="_blank" rel="noopener">Grimmer y Stewart, 2013</a>).</p>
 </div>
 </details>
 <details class="method-box">

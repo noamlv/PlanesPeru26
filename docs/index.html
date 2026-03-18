@@ -179,6 +179,10 @@ document.addEventListener("DOMContentLoaded", function () {
 <span class="menu-text">Métodos</span></a>
   </li>  
   <li class="nav-item">
+    <a class="nav-link" href="./index.html#explorar-ia"> 
+<span class="menu-text">Explorar con IA</span></a>
+  </li>  
+  <li class="nav-item">
     <a class="nav-link" href="./index.html#contacto"> 
 <span class="menu-text">Contacto</span></a>
   </li>  
@@ -569,6 +573,53 @@ Dónde el modelo acierta menos
 Perú Libre es el partido donde el modelo se equivoca más en promedio, una señal de que su perfil combina rasgos menos previsibles que el resto.
 </p>
 </section>
+<section id="explorar-ia" class="level2">
+<h2 class="anchored" data-anchor-id="explorar-ia">Explorar con IA</h2>
+<p>Esta sección añade una capa de exploración asistida sobre los planes ya procesados. En la web pública funciona como búsqueda guiada con trazabilidad: localiza las propuestas más cercanas a tu pregunta y te devuelve los fragmentos fuente para que puedas revisarlos directamente. Si quieres una respuesta conversacional en lenguaje natural, más abajo te dejamos activada la versión local con <code>ellmer</code>.</p>
+<div class="chart-title">
+Haz una pregunta sobre los planes
+</div>
+<section class="ai-explorer">
+  <div class="ai-helper-row">
+    <button class="ai-prompt-chip" type="button" data-prompt="¿Qué proponen los partidos sobre seguridad ciudadana?">Seguridad ciudadana</button>
+    <button class="ai-prompt-chip" type="button" data-prompt="¿Qué diferencias hay entre Fuerza Popular y Renovación Popular en economía?">Comparar partidos</button>
+    <button class="ai-prompt-chip" type="button" data-prompt="¿Qué planes mencionan canon, APP u obras por impuestos?">Canon y APP</button>
+    <button class="ai-prompt-chip" type="button" data-prompt="¿Qué propuestas hablan de salud mental o atención primaria?">Salud</button>
+  </div>
+  <div class="ai-controls">
+    <div class="ai-field ai-field-query">
+      <label for="ai-query">Pregunta o tema</label>
+      <input id="ai-query" type="text" placeholder="Escribe una pregunta, un tema o una comparación">
+    </div>
+    <div class="ai-field">
+      <label for="ai-party">Partido</label>
+      <select id="ai-party">
+        <option value="">Todos</option>
+      </select>
+    </div>
+    <div class="ai-field">
+      <label for="ai-axis">Tema</label>
+      <select id="ai-axis">
+        <option value="">Todos</option>
+      </select>
+    </div>
+    <button id="ai-search-btn" class="btn-pill btn-dark" type="button">Explorar</button>
+    <button id="ai-clear-btn" class="btn-pill btn-light" type="button">Limpiar</button>
+  </div>
+  <p class="small-muted ai-mode-note">En la web pública esta caja funciona como búsqueda asistida. La versión conversacional con IA corre en local para no exponer claves en el sitio.</p>
+  <div id="ai-meta" class="small-muted ai-meta"></div>
+  <div id="ai-results" class="ai-results"></div>
+  <div class="ai-local-box">
+    <div class="ai-local-title">Versión local con ellmer</div>
+    <p>Si activas una API key, el explorador local recupera primero las propuestas más relevantes y luego usa <code>ellmer</code> para redactar una respuesta breve, en español, citando partido, <code>doc_id</code> y <code>proposal_id</code>.</p>
+    <pre class="ai-command"><code>Rscript scripts/explorar_ia_app.R</code></pre>
+  </div>
+</section>
+<script src="assets/ai_explorer.js"></script>
+<p class="chart-analysis">
+La versión pública ya te deja ubicar propuestas por pregunta, partido o tema y revisar su trazabilidad. Cuando actives la versión local con IA, <code>ellmer</code> tomará esas mismas fuentes para devolverte una síntesis narrativa, siempre apoyada en los fragmentos recuperados.
+</p>
+</section>
 <section id="metodos" class="level2">
 <h2 class="anchored" data-anchor-id="metodos">Métodos</h2>
 <p class="methods-overview">Aquí reunimos, de manera transparente, las distintas herramientas de análisis de texto que se aplicaron a los planes de gobierno presentados ante el Jurado Nacional de Elecciones. La idea es que puedas ver no solo los resultados, sino también cómo se construyó cada lectura comparativa del sitio. Debajo encontrarás, sección por sección, qué se hizo, con qué enfoque y cómo conviene interpretar cada resultado.</p>
@@ -584,6 +635,13 @@ Perú Libre es el partido donde el modelo se equivoca más en promedio, una señ
 <li>Análisis comparativo: conteo, similitud semántica, tópicos, cobertura, viabilidad fiscal, contraste con datos oficiales, seguimiento e implementabilidad.</li>
 </ul>
 <p>Como marco general del análisis automático de texto en ciencia política y de sus etapas de validación, seguimos el enfoque <em>text as data</em> (<a href="https://doi.org/10.1093/pan/mps028" target="_blank" rel="noopener">Grimmer y Stewart, 2013</a>).</p>
+</div>
+</details>
+<details class="method-box">
+<summary class="method-summary">Explorar con IA</summary>
+<div class="method-content">
+<p>Este módulo combina dos pasos. Primero recupera propuestas relevantes desde la base ya estructurada, usando una búsqueda por coincidencia de términos, tema, partido y señales de claridad. Después, en la versión local, esa evidencia pasa a <code>ellmer</code>, que redacta una respuesta breve en español sin salir de las fuentes recuperadas.</p>
+<p>La versión pública del sitio conserva solo la búsqueda asistida para no exponer credenciales en GitHub Pages. La versión local abre una app en <code>shiny</code> y, si encuentra credenciales activas, usa <code>ellmer</code> para sintetizar la respuesta con citas al partido, <code>doc_id</code> y <code>proposal_id</code>. El principio de fondo sigue siendo el mismo del resto del proyecto: usar texto como dato y mantener trazabilidad de cada afirmación (<a href="https://doi.org/10.1093/pan/mps028" target="_blank" rel="noopener">Grimmer y Stewart, 2013</a>).</p>
 </div>
 </details>
 <details class="method-box">
