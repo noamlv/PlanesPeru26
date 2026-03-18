@@ -2262,6 +2262,5 @@ save_iframe(p_bart_res, "index_bart_residuals.html", height = 620)
 <a class="icon-link" href="https://www.facebook.com/noamlv/" target="_blank" rel="noopener" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
 <a class="icon-link" href="https://scholar.google.com/citations?user=Jq-kcicAAAAJ&hl=es" target="_blank" rel="noopener" aria-label="Google Scholar"><i class="bi bi-mortarboard-fill"></i></a>
 <a class="icon-link" href="https://github.com/noamlv" target="_blank" rel="noopener" aria-label="GitHub"><i class="bi bi-github"></i></a>
-<a class="icon-link" href="https://wa.me/51996358492" target="_blank" rel="noopener" aria-label="WhatsApp"><i class="bi bi-whatsapp"></i></a>
 </div>
 ```
