@@ -2227,7 +2227,7 @@ save_iframe(p_bart_res, "index_bart_residuals.html", height = 620)
 <summary class="method-summary">Cobertura</summary>
 <div class="method-content">
 <p>En cobertura revisamos a quiénes les hablan los planes y qué territorios reciben atención. Para eso se detectan menciones a grupos poblacionales y espacios territoriales mediante reglas sobre el texto.</p>
-<p>Las categorías se normalizaron para que el lector vea etiquetas simples como <em>Adulto mayor</em>, <em>MYPE y empresas</em> o <em>Regiones y provincias</em>. Los mapas de color muestran proporciones dentro del plan: tonos más intensos significan mayor presencia de propuestas dirigidas a ese grupo o territorio. Este tipo de medición de atención política en texto sigue recomendaciones de validación conceptual y uso de diccionarios (<a href="https://doi.org/10.1146/annurev-polisci-052615-025542" target="_blank" rel="noopener">Wilkerson y Casas, 2017</a>).</p>
+<p>Las categorías se normalizaron para que se pueda leer etiquetas simples como <em>Adulto mayor</em>, <em>MYPE y empresas</em> o <em>Regiones y provincias</em>. Los mapas de color muestran proporciones dentro del plan: tonos más intensos significan mayor presencia de propuestas dirigidas a ese grupo o territorio. Este tipo de medición de atención política en texto sigue recomendaciones de validación conceptual y uso de diccionarios (<a href="https://doi.org/10.1146/annurev-polisci-052615-025542" target="_blank" rel="noopener">Wilkerson y Casas, 2017</a>).</p>
 </div>
 </details>
 <details class="method-box">
