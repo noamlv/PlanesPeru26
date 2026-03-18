@@ -1384,7 +1384,7 @@ cat(sprintf(
 
 ## Cantidad y claridad {#panorama}
 
-En esta vista comparamos cuántos enunciados programáticos detectó el extractor en cada plan y qué nivel de concreción promedio alcanzan. La lectura conjunta permite distinguir entre planes extensos y planes realmente utilizables, sin confundir volumen con claridad. Para conocer cómo se ha calculado la concreción, revisa la sección de Métodos.
+En esta vista comparamos cuántos enunciados programáticos detectó el extractor en cada plan y qué nivel de concreción promedio alcanzan. La lectura conjunta permite distinguir entre planes extensos y planes realmente utilizables, sin confundir volumen con claridad.
 
 <div class="chart-title">Qué partidos proponen más</div>
 
