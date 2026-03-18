@@ -2186,14 +2186,13 @@ save_iframe(p_bart_res, "index_bart_residuals.html", height = 620)
 <li>Clasificación: asignación de eje temático, tipo de intervención y variables como meta numérica, plazo, población objetivo, territorio, costo, fuente y evidencia.</li>
 <li>Análisis comparativo: conteo, similitud semántica, tópicos, cobertura, viabilidad fiscal, contraste con datos oficiales, seguimiento e implementabilidad.</li>
 </ul>
-<p>Hoy conviven dos universos de análisis. El universo amplio reúne <strong>4,084 enunciados detectados</strong> por el extractor; el subconjunto más conservador reúne <strong>2,742 propuestas operativas</strong>, definidas como enunciados de al menos 10 palabras con una señal operativa clara, como tipo de intervención, meta o plazo. La portada usa este subconjunto estricto; en cambio, las secciones de Cantidad y claridad, Agenda, Similitud, Concreción, Cobertura, Viabilidad fiscal, Contraste con datos oficiales, Seguimiento e Implementabilidad siguen trabajando sobre el universo amplio.</p>
-<p>Como marco general del análisis automático de texto en ciencia política y de sus etapas de validación, seguimos el enfoque <em>text as data</em> (<a href="https://doi.org/10.1093/pan/mps028" target="_blank" rel="noopener">Grimmer y Stewart, 2013</a>).</p>
+<p>Se han detectado <strong>4,084 enunciados</strong> y, a partir de ellos, se ha encontrado un subconjunto de <strong>2,742 propuestas operativas</strong>, entendidas como formulaciones con una señal clara de acción, meta o plazo. Como marco general del análisis automático de texto y de sus etapas de validación, seguimos el enfoque <em>text as data</em> (<a href="https://doi.org/10.1093/pan/mps028" target="_blank" rel="noopener">Grimmer y Stewart, 2013</a>).</p>
 </div>
 </details>
 <details class="method-box">
 <summary class="method-summary">Cantidad y claridad</summary>
 <div class="method-content">
-<p>En esta sección contamos cuántas propuestas quedaron extraídas por partido y calculamos su claridad promedio. La base sale de <code>propuestas_supervised.parquet</code>, que ya contiene una propuesta por fila con su trazabilidad documental.</p>
+<p>En esta sección contamos cuántas propuestas quedaron extraídas por partido y calculamos su claridad promedio.</p>
 <p>La claridad o concreción se resume en una escala de 0 a 100. Ese puntaje suma cuando una propuesta tiene meta numérica, horizonte temporal, tipo de intervención, población objetivo, territorio, mención de costo o fuente y evidencia; también descuenta cuando el lenguaje es demasiado vago. El procesamiento se hizo con <code>dplyr</code>, <code>stringr</code> y <code>arrow</code>, siguiendo trabajos sobre especificidad de promesas y ambigüedad programática (<a href="https://ucigcc.org/wp-content/uploads/2024/10/2024_wp7_ntounias-schneider-thomson_v2-FINAL-1.pdf" target="_blank" rel="noopener">Ntounias, Schneider y Thomson, 2024</a>).</p>
 </div>
 </details>
@@ -2224,7 +2223,7 @@ save_iframe(p_bart_res, "index_bart_residuals.html", height = 620)
 <summary class="method-summary">Cobertura</summary>
 <div class="method-content">
 <p>En cobertura revisamos a quiénes les hablan los planes y qué territorios reciben atención. Para eso se detectan menciones a grupos poblacionales y espacios territoriales mediante reglas sobre el texto.</p>
-<p>Las categorías se normalizaron para que el lector vea etiquetas simples como <em>Adulto mayor</em>, <em>MYPE y empresas</em> o <em>Regiones y provincias</em>. Los mapas de color muestran proporciones dentro del plan: tonos más intensos significan mayor presencia de propuestas dirigidas a ese grupo o territorio. Este tipo de medición de atención política en texto sigue recomendaciones de validación conceptual y uso de diccionarios en ciencia política (<a href="https://doi.org/10.1146/annurev-polisci-052615-025542" target="_blank" rel="noopener">Wilkerson y Casas, 2017</a>).</p>
+<p>Las categorías se normalizaron para que el lector vea etiquetas simples como <em>Adulto mayor</em>, <em>MYPE y empresas</em> o <em>Regiones y provincias</em>. Los mapas de color muestran proporciones dentro del plan: tonos más intensos significan mayor presencia de propuestas dirigidas a ese grupo o territorio. Este tipo de medición de atención política en texto sigue recomendaciones de validación conceptual y uso de diccionarios (<a href="https://doi.org/10.1146/annurev-polisci-052615-025542" target="_blank" rel="noopener">Wilkerson y Casas, 2017</a>).</p>
 </div>
 </details>
 <details class="method-box">
@@ -2253,7 +2252,7 @@ save_iframe(p_bart_res, "index_bart_residuals.html", height = 620)
 <div class="method-content">
 <p>Aquí usamos un modelo BART, sigla de <em>Bayesian Additive Regression Trees</em>, para resumir qué factores suelen acompañar propuestas más implementables. El objetivo no es predecir el futuro político, sino identificar patrones que ayudan a explicar por qué algunas propuestas parecen más ejecutables que otras.</p>
 <p>El modelo se estimó con <code>dbarts</code> y se alimentó con variables del resto del pipeline: concreción, viabilidad fiscal, contraste externo, seguimiento, tipo de intervención, lenguaje vago y confianza temática. La salida se muestra en escala de 0 a 100 y debe leerse como evidencia descriptiva, no causal.</p>
-<p>Si quieres revisar la base estadística del enfoque, aquí tienes la referencia original del modelo y una revisión posterior del método (<a href="https://doi.org/10.1214/09-AOAS285" target="_blank" rel="noopener">Chipman, George y McCulloch, 2010</a>; <a href="https://doi.org/10.1146/annurev-statistics-031219-041110" target="_blank" rel="noopener">Hill, Linero y Murray, 2020</a>). También puedes abrir la documentación del paquete <a href="https://cran.r-project.org/package=dbarts" target="_blank" rel="noopener">dbarts</a>.</p>
+<p>La base estadística de este enfoque de análisis de texto ha sido revisada y tiene múltiples aplicaciones (<a href="https://doi.org/10.1214/09-AOAS285" target="_blank" rel="noopener">Chipman, George y McCulloch, 2010</a>; <a href="https://doi.org/10.1146/annurev-statistics-031219-041110" target="_blank" rel="noopener">Hill, Linero y Murray, 2020</a>). Para replicar este análisis el paquete en R es <a href="https://cran.r-project.org/package=dbarts" target="_blank" rel="noopener">dbarts</a>.</p>
 </div>
 </details>
 </div>

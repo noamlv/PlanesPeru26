@@ -11,6 +11,8 @@ website:
     title: false
     collapse-below: lg
     right:
+      - text: Inicio
+        href: "index.html"
       - text: Propuestas
         menu:
           - text: Cantidad y claridad
