@@ -33,8 +33,8 @@ slugify <- function(x) {
   x |>
     stri_trans_general("Any-Latin; Latin-ASCII") |>
     str_to_lower() |>
-    str_replace_all("[^a-z0-9]+", "_") |>
-    str_replace_all("^_+|_+$", "")
+    str_replace_all("[^a-z0-9]+", "-") |>
+    str_replace_all("^-+|-+$", "")
 }
 
 party_pretty <- function(x) {
@@ -159,7 +159,7 @@ plans_tbl <- tibble(pdf_path = pdf_files) |>
     candidate = coalesce(candidate_pdf, candidate_txt, "Candidatura no especificada"),
     logo_slug = logo_slug(party),
     logo_path = if_else(!is.na(logo_slug), paste0("assets/party_logos/", logo_slug, ".jpg"), NA_character_),
-    pdf_href = paste0("assets/plans_pdf/", utils::URLencode(pdf_file, reserved = FALSE))
+    pdf_href = paste0("assets/plans_pdf/", slugify(pdf_base), ".pdf")
   ) |>
   arrange(party)
 
