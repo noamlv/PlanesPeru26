@@ -33,6 +33,9 @@ rm -rf docs
 mkdir -p docs
 rsync -a --delete site/_site/ docs/
 : > docs/.nojekyll
+cat > docs/googlee521a259405c29fd.html <<'EOF'
+google-site-verification: googlee521a259405c29fd.html
+EOF
 cat > docs/robots.txt <<'EOF'
 User-agent: *
 Allow: /
