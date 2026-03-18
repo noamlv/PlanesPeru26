@@ -194,7 +194,7 @@ card_html <- function(party, candidate, logo_path, pdf_href) {
 
 ```{=html}
 <section class="hero-stage hero-page-simple">
-  <h1 class="hero-main-title hero-page-title">Planómetro 2026: planes originales</h1>
+  <h1 class="hero-main-title hero-page-title">Planómetro 2026:<br>los planes originales</h1>
   <div class="meta-line"><span>Noam López Villanes</span></div>
   <p class="lead lead-page-simple">Aquí puedes consultar los planes originales presentados ante el Jurado Nacional de Elecciones y abrir directamente el documento correspondiente a cada candidatura.</p>
 </section>
