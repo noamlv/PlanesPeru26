@@ -3,6 +3,7 @@ project:
   output-dir: _site
   render:
     - index.qmd
+    - partidos.qmd
 
 website:
   title: "Planómetro 2026"
@@ -36,6 +37,8 @@ website:
             href: "index.html#bart"
       - text: Métodos
         href: "index.html#metodos"
+      - text: Partidos
+        href: "partidos.html"
       - text: Contacto
         href: "index.html#contacto"
 

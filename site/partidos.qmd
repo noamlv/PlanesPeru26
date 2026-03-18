@@ -1,0 +1,211 @@
+---
+title: "Partidos y planes"
+format: html
+title-block: false
+---
+
+```{=html}
+<style>
+  #title-block-header {
+    display: none;
+  }
+</style>
+```
+
+```{r}
+library(fs)
+library(stringr)
+library(stringi)
+library(dplyr)
+library(tibble)
+library(purrr)
+library(htmltools)
+
+normalize_key <- function(x) {
+  x |>
+    stri_trans_general("Any-Latin; Latin-ASCII") |>
+    str_to_lower() |>
+    str_replace_all("[^a-z0-9]+", " ") |>
+    str_squish()
+}
+
+slugify <- function(x) {
+  x |>
+    stri_trans_general("Any-Latin; Latin-ASCII") |>
+    str_to_lower() |>
+    str_replace_all("[^a-z0-9]+", "_") |>
+    str_replace_all("^_+|_+$", "")
+}
+
+party_pretty <- function(x) {
+  key <- normalize_key(x)
+  pretty_map <- c(
+    "ahora nacion" = "Ahora Nación",
+    "alianza electoral venceremos" = "Alianza Electoral Venceremos",
+    "alianza para el progreso" = "Alianza para el Progreso",
+    "avanza pais" = "Avanza País",
+    "fe en el peru" = "Fe en el Perú",
+    "fuerza popular" = "Fuerza Popular",
+    "fuerza y libertad" = "Fuerza y Libertad",
+    "juntos por el peru" = "Juntos por el Perú",
+    "libertad popular" = "Libertad Popular",
+    "partido aprista" = "Partido Aprista Peruano",
+    "partido aprista peruano" = "Partido Aprista Peruano",
+    "obras" = "Partido Cívico Obras",
+    "partido civico obras" = "Partido Cívico Obras",
+    "partido de los trabajadores y emprendedores" = "Partido de los Trabajadores y Emprendedores",
+    "pte peru" = "PTE Perú",
+    "buen gobierno" = "Partido del Buen Gobierno",
+    "partido del buen gobierno" = "Partido del Buen Gobierno",
+    "partido unido peru" = "Partido Demócrata Unido Perú",
+    "partido democrata unido peru" = "Partido Demócrata Unido Perú",
+    "democrata verde" = "Partido Demócrata Verde",
+    "partido democrata verde" = "Partido Demócrata Verde",
+    "partido democrata federal" = "Partido Democrático Federal",
+    "somos peru" = "Somos Perú",
+    "frente de la esperanza" = "Frente de la Esperanza",
+    "partido morado" = "Partido Morado",
+    "pais para todos" = "País para Todos",
+    "partido patriotico del peru" = "Partido Patriótico del Perú",
+    "cooperacion popular" = "Cooperación Popular",
+    "integridad democratica" = "Integridad Democrática",
+    "peru libre" = "Perú Libre",
+    "peru accion" = "Perú Acción",
+    "peru primero" = "Perú Primero",
+    "prin" = "PRIN",
+    "si creo" = "Sí Creo",
+    "peru moderno" = "Perú Moderno",
+    "podemos peru" = "Podemos Perú",
+    "progresemos" = "Progresemos",
+    "renovacion popular" = "Renovación Popular",
+    "salvemos al peru" = "Salvemos al Perú",
+    "un camino diferente" = "Un Camino Diferente",
+    "unidad nacional" = "Unidad Nacional",
+    "primero la gente" = "Primero la Gente"
+  )
+  out <- unname(pretty_map[key])
+  ifelse(is.na(out), x, out)
+}
+
+logo_slug <- function(pretty_party) {
+  key <- normalize_key(pretty_party)
+  slug_map <- c(
+    "ahora nacion" = "ahora_nacion",
+    "alianza electoral venceremos" = "alianza_electoral_venceremos",
+    "alianza para el progreso" = "alianza_para_el_progreso",
+    "avanza pais" = "avanza_pais",
+    "fe en el peru" = "fe_en_el_peru",
+    "fuerza popular" = "fuerza_popular",
+    "fuerza y libertad" = "fuerza_y_libertad",
+    "juntos por el peru" = "juntos_por_el_peru",
+    "libertad popular" = "libertad_popular",
+    "partido aprista peruano" = "partido_aprista_peruano",
+    "partido civico obras" = "partido_civico_obras",
+    "pte peru" = "pte_peru",
+    "partido del buen gobierno" = "partido_del_buen_gobierno",
+    "partido democrata unido peru" = "partido_democrata_unido_peru",
+    "partido democrata verde" = "partido_democrata_verde",
+    "partido democratico federal" = "partido_democratico_federal",
+    "somos peru" = "somos_peru",
+    "frente de la esperanza" = "frente_de_la_esperanza",
+    "partido morado" = "partido_morado",
+    "pais para todos" = "pais_para_todos",
+    "partido patriotico del peru" = "partido_patriotico_del_peru",
+    "cooperacion popular" = "cooperacion_popular",
+    "integridad democratica" = "integridad_democratica",
+    "peru libre" = "peru_libre",
+    "peru accion" = "peru_accion",
+    "peru primero" = "peru_primero",
+    "prin" = "prin",
+    "si creo" = "si_creo",
+    "peru moderno" = "peru_moderno",
+    "podemos peru" = "podemos_peru",
+    "progresemos" = "progresemos",
+    "renovacion popular" = "renovacion_popular",
+    "salvemos al peru" = "salvemos_al_peru",
+    "un camino diferente" = "un_camino_diferente",
+    "unidad nacional" = "unidad_nacional",
+    "primero la gente" = "primero_la_gente"
+  )
+  unname(slug_map[key])
+}
+
+pdf_files <- dir_ls("../Planes", type = "file", regexp = "(?i)\\.pdf$")
+pdf_files <- pdf_files[!str_detect(path_file(pdf_files), regex("resumen\\.pdf$", ignore_case = TRUE))]
+
+txt_files <- dir_ls("../data/plans_txt", type = "file", regexp = "(?i)\\.txt$")
+txt_files <- txt_files[!str_detect(path_file(txt_files), regex("resumen\\.txt$", ignore_case = TRUE))]
+
+txt_lookup <- tibble(
+  txt_base = path_ext_remove(path_file(txt_files))
+) |>
+  mutate(
+    party_raw = if_else(str_detect(txt_base, " - "), str_split_fixed(txt_base, " - ", 2)[,1], txt_base),
+    candidate_txt = if_else(str_detect(txt_base, " - "), str_split_fixed(txt_base, " - ", 2)[,2], NA_character_),
+    party_pretty = party_pretty(party_raw)
+  ) |>
+  distinct(party_pretty, .keep_all = TRUE)
+
+plans_tbl <- tibble(pdf_path = pdf_files) |>
+  mutate(
+    pdf_file = path_file(pdf_path),
+    pdf_base = path_ext_remove(pdf_file),
+    party_raw = if_else(str_detect(pdf_base, " - "), str_split_fixed(pdf_base, " - ", 2)[,1], pdf_base),
+    candidate_pdf = if_else(str_detect(pdf_base, " - "), str_split_fixed(pdf_base, " - ", 2)[,2], NA_character_),
+    party = party_pretty(party_raw)
+  ) |>
+  left_join(txt_lookup |> select(party_pretty, candidate_txt), by = c("party" = "party_pretty")) |>
+  mutate(
+    candidate = coalesce(candidate_pdf, candidate_txt, "Candidatura no especificada"),
+    logo_slug = logo_slug(party),
+    logo_path = if_else(!is.na(logo_slug), paste0("assets/party_logos/", logo_slug, ".jpg"), NA_character_),
+    pdf_href = paste0("assets/plans_pdf/", utils::URLencode(pdf_file, reserved = FALSE))
+  ) |>
+  arrange(party)
+
+card_html <- function(party, candidate, logo_path, pdf_href) {
+  logo_html <- if (!is.na(logo_path) && nzchar(logo_path)) {
+    sprintf(
+      '<img src="%s" alt="%s" class="plan-card-logo"/>',
+      htmlEscape(logo_path),
+      htmlEscape(paste("Logo de", party))
+    )
+  } else {
+    ""
+  }
+
+  sprintf(
+    paste0(
+      '<div class="plan-card">',
+      '<div class="plan-card-media">%s</div>',
+      '<div class="plan-card-body">',
+      '<div class="plan-card-party">%s</div>',
+      '<div class="plan-card-candidate">%s</div>',
+      '<a class="btn-pill btn-light plan-card-link" href="%s" target="_blank" rel="noopener">Abrir plan en PDF</a>',
+      '</div>',
+      '</div>'
+    ),
+    logo_html,
+    htmlEscape(party),
+    htmlEscape(candidate),
+    htmlEscape(pdf_href)
+  )
+}
+```
+
+```{=html}
+<section class="hero-stage hero-page-simple">
+  <h1 class="hero-main-title hero-page-title">Partidos y planes</h1>
+  <div class="meta-line"><span>Noam López Villanes</span></div>
+</section>
+```
+
+```{r results='asis'}
+cat('<div class="plans-grid">')
+cat(paste(pmap_chr(plans_tbl |> select(party, candidate, logo_path, pdf_href), card_html), collapse = "\n"))
+cat('</div>')
+```
+
+```{=html}
+<p class="plans-source">Fuente: Jurado Nacional de Elecciones</p>
+```
