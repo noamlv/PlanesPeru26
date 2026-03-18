@@ -768,7 +768,11 @@ section#panorama.level2 > h2 {
 
 .hero-page-title {
   margin: 0 auto 1rem;
-  max-width: 12ch;
+  max-width: 18ch;
+}
+
+.hero-line {
+  display: block;
 }
 
 .plans-grid {
