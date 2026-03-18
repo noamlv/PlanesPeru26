@@ -52,11 +52,44 @@ propuestas <- propuestas |>
       str_trim()
   )
 
+boilerplate_regex <- paste(
+  c(
+    "plan estrategico de desarrollo nacional al 2050",
+    "pedn al 2050",
+    "objetivo nacional\\s+on\\s*\\.?\\s*[0-9\\.]+",
+    "objetivo estrategico\\s+oe\\s*\\.?\\s*[0-9\\.]+",
+    "en concordancia con el oe",
+    "del pedn al 2050",
+    "plan de gobierno\\s+2026\\s*2031",
+    "lineamientos estrategicos por objetivo"
+  ),
+  collapse = "|"
+)
+
+strip_boilerplate <- function(txt) {
+  txt |>
+    str_replace_all(regex(boilerplate_regex, ignore_case = TRUE), " ") |>
+    str_replace_all("\\b(on|oe)\\s*\\.?\\s*[0-9\\.]+\\b", " ") |>
+    str_replace_all("\\s+", " ") |>
+    str_trim()
+}
+
+propuestas <- propuestas |>
+  mutate(
+    duplicate_text_norm = strip_boilerplate(proposal_text_norm)
+  )
+
 # -------------------------------------------------------------------
 # 1) Duplicados y near-duplicates interpartido
 # -------------------------------------------------------------------
 
 stop_es <- stopwords("es")
+stop_extra <- c(
+  "objetivo", "objetivos", "estrategico", "estrategicos", "nacional", "nacionales",
+  "plan", "planes", "gobierno", "desarrollo", "calidad", "pais", "peru", "publica",
+  "publico", "regional", "regionales", "implementacion", "fortalecer", "garantizar"
+)
+stop_es <- unique(c(stop_es, stop_extra))
 
 make_token_set <- function(txt) {
   toks <- unlist(str_split(txt, " ", simplify = FALSE), use.names = FALSE)
@@ -65,7 +98,7 @@ make_token_set <- function(txt) {
   unique(toks)
 }
 
-token_sets <- map(propuestas$proposal_text_norm, make_token_set)
+token_sets <- map(propuestas$duplicate_text_norm, make_token_set)
 names(token_sets) <- propuestas$proposal_id
 
 expand_exact_pairs <- function(df_group) {
@@ -85,8 +118,8 @@ expand_exact_pairs <- function(df_group) {
 }
 
 exact_groups <- propuestas |>
-  filter(nchar(proposal_text_norm) >= 40) |>
-  group_by(proposal_text_norm) |>
+  filter(nchar(duplicate_text_norm) >= 80) |>
+  group_by(duplicate_text_norm) |>
   filter(n_distinct(party) > 1) |>
   group_split()
 
@@ -94,7 +127,7 @@ exact_pairs <- map_dfr(exact_groups, expand_exact_pairs)
 
 # Near duplicates using embedding cosine + lexical jaccard
 prop_emb <- propuestas |>
-  select(proposal_id, party, proposal_text_norm) |>
+  select(proposal_id, party, proposal_text_norm, duplicate_text_norm) |>
   left_join(embeddings, by = c("proposal_id", "party"))
 
 dim_cols <- names(prop_emb)[str_detect(names(prop_emb), "^dim_")]
@@ -127,6 +160,8 @@ if (nrow(cand_idx) > 0) {
   ) |>
     filter(party_a != party_b) |>
     mutate(
+      tokens_a_n = map_int(proposal_id_a, ~ length(token_sets[[.x]])),
+      tokens_b_n = map_int(proposal_id_b, ~ length(token_sets[[.x]])),
       jaccard_similarity = map2_dbl(proposal_id_a, proposal_id_b, function(a, b) {
         ta <- token_sets[[a]]
         tb <- token_sets[[b]]
@@ -134,7 +169,8 @@ if (nrow(cand_idx) > 0) {
         length(intersect(ta, tb)) / length(union(ta, tb))
       })
     ) |>
-    filter(jaccard_similarity >= 0.55 | cosine_similarity >= 0.97) |>
+    filter(tokens_a_n >= 8, tokens_b_n >= 8) |>
+    filter(jaccard_similarity >= 0.65 | (cosine_similarity >= 0.985 & jaccard_similarity >= 0.45)) |>
     mutate(duplicate_type = "near_duplicate") |>
     select(proposal_id_a, proposal_id_b, party_a, party_b, cosine_similarity, jaccard_similarity, duplicate_type)
 }
@@ -150,6 +186,41 @@ pairs_all <- bind_rows(exact_pairs, near_pairs) |>
   arrange(desc(duplicate_type == "exact_duplicate"), desc(cosine_similarity), .by_group = TRUE) |>
   slice(1) |>
   ungroup()
+
+greedy_match_pairs <- function(df_group) {
+  if (nrow(df_group) <= 1) return(df_group)
+  used_a <- character()
+  used_b <- character()
+  keep <- logical(nrow(df_group))
+
+  for (i in seq_len(nrow(df_group))) {
+    ida <- df_group$proposal_id_a[i]
+    idb <- df_group$proposal_id_b[i]
+    if (!(ida %in% used_a) && !(idb %in% used_b)) {
+      keep[i] <- TRUE
+      used_a <- c(used_a, ida)
+      used_b <- c(used_b, idb)
+    }
+  }
+
+  df_group[keep, , drop = FALSE]
+}
+
+pairs_all <- pairs_all |>
+  mutate(
+    party_pair = if_else(
+      party_a < party_b,
+      paste(party_a, party_b, sep = "__"),
+      paste(party_b, party_a, sep = "__")
+    ),
+    match_score = if_else(duplicate_type == "exact_duplicate", 2, 1) +
+      cosine_similarity + jaccard_similarity
+  ) |>
+  arrange(desc(match_score)) |>
+  group_by(party_pair) |>
+  group_modify(~ greedy_match_pairs(.x)) |>
+  ungroup() |>
+  select(-party_pair, -match_score)
 
 # Attach context
 pairs_all <- pairs_all |>
@@ -251,12 +322,20 @@ build_rule_hits <- function(rule_row) {
 hits <- map_dfr(split(rules, seq_len(nrow(rules))), build_rule_hits) |>
   distinct(proposal_id, dimension, stance, .keep_all = TRUE)
 
+hits_clean <- hits |>
+  count(proposal_id, dimension, name = "stance_n") |>
+  filter(stance_n == 1) |>
+  select(proposal_id, dimension)
+
+hits <- hits |>
+  inner_join(hits_clean, by = c("proposal_id", "dimension"))
+
 if (nrow(hits) > 0) {
   hits_top <- hits |>
     mutate(signal = (coalesce(concreteness_score, 0) / 100) * 0.5 + coalesce(axis_supervised_prob, 0) * 0.3 + coalesce(instrument_supervised_prob, 0) * 0.2) |>
     group_by(party, dimension, stance) |>
     arrange(desc(signal), .by_group = TRUE) |>
-    slice_head(n = 5) |>
+    slice_head(n = 1) |>
     ungroup()
 
   contradictions <- rules |>

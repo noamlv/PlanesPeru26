@@ -5,34 +5,36 @@ project:
     - index.qmd
 
 website:
-  title: "Voto Informado 2026"
+  title: "Planómetro 2026"
   navbar:
-    left:
-      - text: Portada
-        href: "index.html#inicio"
-      - text: Panorama
-        href: "index.html#panorama"
-      - text: Agenda
-        href: "index.html#agenda"
-      - text: Similitud
-        href: "index.html#similitud"
-      - text: Concreción
-        href: "index.html#concrecion"
-      - text: Cobertura
-        href: "index.html#cobertura"
-      - text: Coherencia
-        href: "index.html#coherencia"
-      - text: Viabilidad
-        href: "index.html#viabilidad"
-      - text: Benchmark
-        href: "index.html#benchmark"
-      - text: KPIs
-        href: "index.html#kpis"
-      - text: BART
-        href: "index.html#bart"
+    title: false
+    right:
+      - text: Lectura rápida
+        menu:
+          - text: Cantidad y claridad
+            href: "index.html#panorama"
+          - text: Agenda
+            href: "index.html#agenda"
+          - text: Concreción
+            href: "index.html#concrecion"
+      - text: Comparar partidos
+        menu:
+          - text: Similitud
+            href: "index.html#similitud"
+      - text: Factibilidad
+        menu:
+          - text: Cobertura
+            href: "index.html#cobertura"
+          - text: Viabilidad fiscal
+            href: "index.html#viabilidad"
+          - text: Contraste
+            href: "index.html#benchmark"
+          - text: Seguimiento
+            href: "index.html#kpis"
+          - text: Implementabilidad
+            href: "index.html#bart"
       - text: Métodos
         href: "index.html#metodos"
-    right:
       - text: Contacto
         href: "index.html#contacto"
 

@@ -1,5 +1,5 @@
 ---
-title: "Voto Informado 2026: Plan por Plan"
+title: "Planómetro 2026"
 format: html
 ---
 
@@ -29,6 +29,91 @@ save_iframe <- function(widget, file, height = 560) {
   ))
 }
 
+save_html_iframe <- function(html, file, height = 560) {
+  writeLines(html, file.path("_site", "iframes", file), useBytes = TRUE)
+  cat(sprintf(
+    '<div class="inline-viz"><iframe class="viz-clean-frame" src="iframes/%s" loading="lazy" style="height:%dpx;"></iframe></div>',
+    file,
+    as.integer(height)
+  ))
+}
+
+normalize_party <- function(x) {
+  x <- as.character(x)
+  if (requireNamespace("stringi", quietly = TRUE)) {
+    x <- stringi::stri_trans_general(x, "NFD; [:Nonspacing Mark:] Remove; NFC")
+  } else {
+    x <- iconv(x, from = "", to = "ASCII//TRANSLIT")
+  }
+  x <- tolower(x)
+  x <- gsub("[^a-z0-9]+", " ", x)
+  trimws(x)
+}
+
+party_pretty <- function(x) {
+  key <- normalize_party(x)
+  pretty_map <- c(
+    "ahora nacion" = "Ahora Nación",
+    "alianza electoral venceremos" = "Alianza Electoral Venceremos",
+    "alianza para el progreso" = "Alianza para el Progreso",
+    "avanza pais" = "Avanza País",
+    "fe en el peru" = "Fe en el Perú",
+    "fuerza popular" = "Fuerza Popular",
+    "fuerza y libertad" = "Fuerza y Libertad",
+    "juntos por el peru" = "Juntos por el Perú",
+    "libertad popular" = "Libertad Popular",
+    "partido aprista peruano" = "Partido Aprista Peruano",
+    "partido civico obras" = "Partido Cívico Obras",
+    "pte peru" = "PTE Perú",
+    "partido del buen gobierno" = "Partido del Buen Gobierno",
+    "partido democrata unido peru" = "Partido Demócrata Unido Perú",
+    "partido democrata verde" = "Partido Demócrata Verde",
+    "partido democratico federal" = "Partido Democrático Federal",
+    "somos peru" = "Somos Perú",
+    "frente de la esperanza" = "Frente de la Esperanza",
+    "partido morado" = "Partido Morado",
+    "pais para todos" = "País para Todos",
+    "partido patriotico del peru" = "Partido Patriótico del Perú",
+    "cooperacion popular" = "Cooperación Popular",
+    "integridad democratica" = "Integridad Democrática",
+    "peru libre" = "Perú Libre",
+    "peru accion" = "Perú Acción",
+    "peru primero" = "Perú Primero",
+    "prin" = "PRIN",
+    "si creo" = "Sí Creo",
+    "peru moderno" = "Perú Moderno",
+    "podemos peru" = "Podemos Perú",
+    "progresemos" = "Progresemos",
+    "renovacion popular" = "Renovación Popular",
+    "salvemos al peru" = "Salvemos al Perú",
+    "un camino diferente" = "Un Camino Diferente",
+    "unidad nacional" = "Unidad Nacional",
+    "fia del peru" = "FIA del Perú",
+    "primero la gente" = "Primero la Gente",
+    "democrata verde" = "Partido Demócrata Verde",
+    "buen gobierno" = "Partido del Buen Gobierno",
+    "obras" = "Partido Cívico Obras",
+    "partido aprista" = "Partido Aprista Peruano",
+    "partido de los trabajadores y emprendedores" = "Partido de los Trabajadores y Emprendedores",
+    "partido unido peru" = "Partido Demócrata Unido Perú",
+    "partido democrata federal" = "Partido Democrático Federal",
+    "venceremos" = "Alianza Electoral Venceremos"
+  )
+  out <- unname(pretty_map[key])
+  ifelse(is.na(out), x, out)
+}
+
+apply_party_labels <- function(df) {
+  if ("party" %in% names(df)) df$party <- party_pretty(df$party)
+  if ("party_i" %in% names(df)) df$party_i <- party_pretty(df$party_i)
+  if ("party_j" %in% names(df)) df$party_j <- party_pretty(df$party_j)
+  if ("party_a" %in% names(df)) df$party_a <- party_pretty(df$party_a)
+  if ("party_b" %in% names(df)) df$party_b <- party_pretty(df$party_b)
+  if ("party_x" %in% names(df)) df$party_x <- party_pretty(df$party_x)
+  if ("party_y" %in% names(df)) df$party_y <- party_pretty(df$party_y)
+  df
+}
+
 propuestas <- read_parquet("../outputs/propuestas_supervised.parquet")
 party_axis <- read_parquet("../outputs/party_axis_scores.parquet")
 topics <- read_parquet("../outputs/topics_stm.parquet")
@@ -47,6 +132,7 @@ dup_pairs <- read_parquet("../outputs/duplicates_interparty.parquet")
 contr_sum <- read_parquet("../outputs/contradictions_summary_party.parquet")
 
 fiscal_party <- read_parquet("../outputs/fiscal_viability_party.parquet")
+fiscal_detail <- read_parquet("../outputs/fiscal_viability.parquet")
 
 bench_axis <- read_parquet("../outputs/benchmark_gap_party_axis.parquet")
 bench_ind <- read_parquet("../outputs/benchmark_gap_indicator_party.parquet")
@@ -60,10 +146,226 @@ bart_pred <- read_parquet("../outputs/bart_predictions.parquet")
 bart_pdp <- read_parquet("../outputs/bart_partial_dependence.parquet")
 bart_diag <- read_parquet("../outputs/bart_party_diagnostics.parquet")
 
+propuestas <- apply_party_labels(propuestas)
+party_axis <- apply_party_labels(party_axis)
+topics <- apply_party_labels(topics)
+umap <- apply_party_labels(umap)
+sim <- apply_party_labels(sim)
+axis_edges <- apply_party_labels(axis_edges)
+axis_nodes <- apply_party_labels(axis_nodes)
+axis_summary <- apply_party_labels(axis_summary)
+blind <- apply_party_labels(blind)
+pop <- apply_party_labels(pop)
+terr <- apply_party_labels(terr)
+dup_sum <- apply_party_labels(dup_sum)
+dup_pairs <- apply_party_labels(dup_pairs)
+contr_sum <- apply_party_labels(contr_sum)
+fiscal_party <- apply_party_labels(fiscal_party)
+fiscal_detail <- apply_party_labels(fiscal_detail)
+bench_axis <- apply_party_labels(bench_axis)
+bench_ind <- apply_party_labels(bench_ind)
+kpi_party <- apply_party_labels(kpi_party)
+kpi_axis <- apply_party_labels(kpi_axis)
+kpi_tracker <- apply_party_labels(kpi_tracker)
+bart_imp <- apply_party_labels(bart_imp)
+bart_pred <- apply_party_labels(bart_pred)
+bart_pdp <- apply_party_labels(bart_pdp)
+bart_diag <- apply_party_labels(bart_diag)
+
 plot_font_stack <- "-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, 'Helvetica Neue', Arial, sans-serif"
 
 party_levels <- sort(unique(as.character(propuestas$party)))
+
+party_palette_raw <- c(
+  "Ahora Nacion" = "#D71920",
+  "Alianza Electoral Venceremos" = "#4CAF50",
+  "Alianza para el Progreso" = "#0057B8",
+  "Avanza Pais" = "#1E5AA8",
+  "Fe en el Peru" = "#00A651",
+  "Fuerza Popular" = "#F58220",
+  "Fuerza y Libertad" = "#2E4DA7",
+  "Juntos por el Peru" = "#009245",
+  "Libertad Popular" = "#FFD600",
+  "Partido Aprista Peruano" = "#E30613",
+  "Partido Civico Obras" = "#6AA84F",
+  "PTE Peru" = "#2F5597",
+  "Partido del Buen Gobierno" = "#FFC000",
+  "Partido Democrata Unido Peru" = "#3CB371",
+  "Partido Democrata Verde" = "#3FAE2A",
+  "Partido Democratico Federal" = "#2F6B2F",
+  "Somos Peru" = "#E31C24",
+  "Frente de la Esperanza" = "#2E8B57",
+  "Partido Morado" = "#6F2DA8",
+  "Pais para Todos" = "#F2B705",
+  "Partido Patriotico del Peru" = "#4D4D4D",
+  "Cooperacion Popular" = "#2F80ED",
+  "Integridad Democratica" = "#4A90E2",
+  "Peru Libre" = "#D50000",
+  "Peru Accion" = "#1F4E79",
+  "Peru Primero" = "#E10600",
+  "PRIN" = "#C00000",
+  "Si Creo" = "#C0392B",
+  "Peru Moderno" = "#A0006D",
+  "Podemos Peru" = "#1F77B4",
+  "Progresemos" = "#8BC34A",
+  "Renovacion Popular" = "#66B2FF",
+  "Salvemos al Peru" = "#E60023",
+  "Un Camino Diferente" = "#C8102E",
+  "Unidad Nacional" = "#2E8B57",
+  "FIA del Peru" = "#005BBB",
+  "Primero la Gente" = "#3CB44B"
+)
+
+party_palette <- setNames(unname(party_palette_raw), normalize_party(names(party_palette_raw)))
+party_alias <- c(
+  "buen gobierno" = "partido del buen gobierno",
+  "democrata verde" = "partido democrata verde",
+  "obras" = "partido civico obras",
+  "partido aprista" = "partido aprista peruano",
+  "partido de los trabajadores y emprendedores" = "pte peru",
+  "partido unido peru" = "partido democrata unido peru",
+  "partido democrata federal" = "partido democratico federal",
+  "venceremos" = "alianza electoral venceremos"
+)
 party_cols <- setNames(grDevices::hcl.colors(length(party_levels), palette = "Dynamic"), party_levels)
+for (party_name in party_levels) {
+  normalized_name <- normalize_party(party_name)
+  if (normalized_name %in% names(party_alias)) {
+    normalized_name <- party_alias[[normalized_name]]
+  }
+  if (normalized_name %in% names(party_palette)) {
+    party_cols[[party_name]] <- party_palette[[normalized_name]]
+  }
+}
+
+party_logo_urls_raw <- c(
+  "Ahora Nación" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2980",
+  "Alianza Electoral Venceremos" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/3025",
+  "Alianza para el Progreso" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/1257",
+  "Avanza País" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2173",
+  "Fe en el Perú" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2898",
+  "Fuerza Popular" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/1366",
+  "Fuerza y Libertad" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/3024",
+  "Juntos por el Perú" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/1264",
+  "Libertad Popular" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2933",
+  "Partido Aprista Peruano" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2930",
+  "Partido Cívico Obras" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2941",
+  "PTE Perú" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2939",
+  "Partido del Buen Gobierno" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2961",
+  "Partido Demócrata Unido Perú" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2867",
+  "Partido Demócrata Verde" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2895",
+  "Partido Democrático Federal" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2986",
+  "Somos Perú" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/14",
+  "Frente de la Esperanza" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2857",
+  "Partido Morado" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2840",
+  "País para Todos" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2956",
+  "Partido Patriótico del Perú" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2869",
+  "Cooperación Popular" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2995",
+  "Integridad Democrática" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2985",
+  "Perú Libre" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2218",
+  "Perú Acción" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2932",
+  "Perú Primero" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2925",
+  "PRIN" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2921",
+  "Sí Creo" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2935",
+  "Perú Moderno" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2924",
+  "Podemos Perú" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2731",
+  "Primero la Gente" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2931",
+  "Progresemos" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2967",
+  "Renovación Popular" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/22",
+  "Salvemos al Perú" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2927",
+  "Un Camino Diferente" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/2998",
+  "Unidad Nacional" = "https://sroppublico.jne.gob.pe/Consulta/Simbolo/GetSimbolo/3023"
+)
+party_logo_urls <- setNames(unname(party_logo_urls_raw), normalize_party(names(party_logo_urls_raw)))
+
+party_logo <- function(x) {
+  key <- normalize_party(x)
+  file_name <- paste0(gsub(" ", "_", key), ".jpg")
+  local_rel <- paste0("../assets/party_logos/", file_name)
+  local_abs <- file.path("assets", "party_logos", file_name)
+  remote <- unname(party_logo_urls[key])
+  ifelse(file.exists(local_abs), local_rel, ifelse(is.na(remote), "", remote))
+}
+
+build_network_panel_html <- function(axis_name, nodes_df, edges_df) {
+  if (nrow(nodes_df) == 0) return("")
+  nodes_df <- nodes_df |>
+    arrange(desc(node_size), party) |>
+    mutate(
+      idx = row_number(),
+      ang = seq(0, 2 * pi, length.out = n() + 1)[-1] - pi / 2,
+      x = 50 + 35 * cos(ang),
+      y = 54 + 28 * sin(ang),
+      size_px = pmax(34, pmin(54, 26 + sqrt(node_size) * 2.8)),
+      logo = party_logo(party)
+    )
+
+  edges_plot <- edges_df |>
+    left_join(nodes_df |> select(party, x_a = x, y_a = y), by = c("party_a" = "party")) |>
+    left_join(nodes_df |> select(party, x_b = x, y_b = y), by = c("party_b" = "party")) |>
+    filter(is.finite(x_a), is.finite(y_a), is.finite(x_b), is.finite(y_b)) |>
+    mutate(
+      stroke = case_when(
+        similarity >= 0.85 ~ "#8ea3b8",
+        similarity >= 0.80 ~ "#b4c0cd",
+        TRUE ~ "#d5dce4"
+      ),
+      stroke_width = case_when(
+        similarity >= 0.85 ~ 2.2,
+        similarity >= 0.80 ~ 1.7,
+        TRUE ~ 1.2
+      )
+    )
+
+  line_tags <- if (nrow(edges_plot) > 0) {
+    paste0(
+      apply(edges_plot, 1, function(row) {
+        sprintf(
+          "<line x1='%s%%' y1='%s%%' x2='%s%%' y2='%s%%' stroke='%s' stroke-width='%s' stroke-linecap='round' />",
+          row[["x_a"]], row[["y_a"]], row[["x_b"]], row[["y_b"]], row[["stroke"]], row[["stroke_width"]]
+        )
+      }),
+      collapse = ""
+    )
+  } else {
+    ""
+  }
+
+  node_tags <- paste0(
+    apply(nodes_df, 1, function(row) {
+      label <- htmltools::htmlEscape(as.character(row[["party"]]))
+      logo <- htmltools::htmlEscape(as.character(row[["logo"]]))
+      sprintf(
+        paste0(
+          "<div class='network-node' style='left:calc(%s%% - %spx); top:calc(%s%% - %spx); width:%spx;'>",
+          "<img src='%s' alt='%s' />",
+          "<div class='network-node-label'>%s</div>",
+          "</div>"
+        ),
+        row[["x"]], round(as.numeric(row[["size_px"]]) / 2),
+        row[["y"]], round(as.numeric(row[["size_px"]]) / 2),
+        round(as.numeric(row[["size_px"]])),
+        logo, label, label
+      )
+    }),
+    collapse = ""
+  )
+
+  sprintf(
+    paste0(
+      "<section class='network-card'>",
+      "<div class='network-card-title'>%s</div>",
+      "<div class='network-stage'>",
+      "<svg class='network-lines' viewBox='0 0 100 100' preserveAspectRatio='none'>%s</svg>",
+      "%s",
+      "</div>",
+      "</section>"
+    ),
+    htmltools::htmlEscape(axis_name),
+    line_tags,
+    node_tags
+  )
+}
 
 kpi <- propuestas |>
   summarise(
@@ -84,45 +386,353 @@ by_party <- propuestas |>
   arrange(desc(propuestas_n))
 
 axis_mix <- propuestas |>
-  mutate(axis_supervised = ifelse(is.na(axis_supervised) | axis_supervised == "", "otros", axis_supervised)) |>
-  count(party, axis_supervised, name = "n") |>
+  mutate(
+    axis_base = ifelse(is.na(axis) | axis == "", "otros", axis),
+    tx = str_to_lower(proposal_text),
+    axis_agenda = case_when(
+      str_detect(tx, "corrup|coima|soborno|lavado de activos|transparen|integridad p[uú]blica|contralor") ~ "corrupcion",
+      str_detect(tx, "transporte|movilidad|metro|tren|ferro|carretera|v[ií]a|puerto|aeropuerto|terminal") ~ "transporte",
+      str_detect(tx, "salud|hospital|medic|essalud|vacuna|atenci[oó]n primaria") ~ "salud",
+      str_detect(tx, "educaci[oó]n|colegio|universidad|docente|curr[ií]culo|beca|aprendizaje") ~ "educacion",
+      str_detect(tx, "empleo|trabajo|laboral|salario|formalizaci[oó]n|desempleo") ~ "empleo",
+      axis_base %in% c("seguridad", "economia", "energia", "ambiente", "social", "infraestructura", "institucionalidad") ~ axis_base,
+      str_detect(tx, "vivienda|saneamiento|agua potable|alcantarillado|obra p[uú]blica") ~ "infraestructura",
+      str_detect(tx, "pobreza|inclusi[oó]n|ni[ñn]ez|mujer|j[oó]venes|adulto mayor|discapacidad") ~ "social",
+      TRUE ~ "otros"
+    )
+  ) |>
+  count(party, axis_agenda, name = "n") |>
   group_by(party) |>
   mutate(share = n / sum(n)) |>
   ungroup()
 
-axis_global <- axis_mix |>
-  group_by(axis_supervised) |>
+axis_label <- function(x) {
+  recode(
+    x,
+    "corrupcion" = "Corrupción",
+    "institucionalidad" = "Institucionalidad",
+    "economia" = "Economía",
+    "empleo" = "Empleo",
+    "transporte" = "Transporte",
+    "salud" = "Salud",
+    "educacion" = "Educación",
+    "ambiente" = "Ambiente",
+    "seguridad" = "Seguridad",
+    "energia" = "Energía",
+    "infraestructura" = "Infraestructura",
+    "social" = "Social",
+    "otros" = "Otros",
+    .default = str_to_sentence(x)
+  )
+}
+
+population_label <- function(x) {
+  recode(
+    x,
+    "adulto_mayor" = "Adulto mayor",
+    "agricultores" = "Agricultores",
+    "discapacidad" = "Discapacidad",
+    "jovenes" = "Jóvenes",
+    "mujeres" = "Mujeres",
+    "mype_empresas" = "MYPE y empresas",
+    "ninos_ninas" = "Niños y niñas",
+    "policia_ffaa" = "Policía y FF. AA.",
+    "pueblos_indigenas" = "Pueblos indígenas",
+    "trabajadores" = "Trabajadores",
+    .default = str_to_sentence(gsub("_", " ", x))
+  )
+}
+
+territory_label <- function(x) {
+  recode(
+    x,
+    "costa" = "Costa",
+    "distritos_local" = "Distritos y ámbito local",
+    "frontera" = "Frontera",
+    "lima_callao" = "Lima y Callao",
+    "nacional" = "Nacional",
+    "regiones_provincias" = "Regiones y provincias",
+    "rural" = "Rural",
+    "selva_amazonia" = "Selva y Amazonía",
+    "sierra" = "Sierra",
+    "urbano" = "Urbano",
+    .default = str_to_sentence(gsub("_", " ", x))
+  )
+}
+
+wrap_tick <- function(x) {
+  x |>
+    str_replace_all(" y ", " y<br>") |>
+    str_replace_all(" o ", " o<br>") |>
+    str_replace_all(" ", "<br>")
+}
+
+stagger_tick <- function(x) {
+  base <- wrap_tick(x)
+  ifelse(
+    seq_along(base) %% 2 == 0,
+    paste0(base, "<br>"),
+    paste0("<br>", base)
+  )
+}
+
+tier_label <- function(x) {
+  recode(
+    x,
+    "alta" = "Alta",
+    "media" = "Media",
+    "baja" = "Baja",
+    .default = str_to_sentence(x)
+  )
+}
+
+source_label <- function(x) {
+  recode(
+    x,
+    "INEI/BCRP" = "INEI / BCRP",
+    "MEF/BCRP" = "MEF / BCRP",
+    "INEI" = "INEI",
+    "BCRP" = "BCRP",
+    "MEF" = "MEF",
+    "MINSA" = "MINSA",
+    .default = x
+  )
+}
+
+instrument_value_label <- function(x) {
+  recode(
+    x,
+    "program" = "programa",
+    "law/reform" = "reforma o ley",
+    "spending/investment" = "gasto o inversión",
+    "institutional change" = "cambio institucional",
+    "enforcement/punitive" = "control o sanción",
+    "technology/data" = "tecnología o datos",
+    "unspecified" = "sin especificar",
+    .default = str_to_sentence(str_replace_all(x, "_", " "))
+  )
+}
+
+consistency_value_label <- function(x) {
+  recode(
+    x,
+    "yes" = "consistente",
+    "no" = "inconsistente",
+    "unknown" = "sin dato",
+    .default = str_to_sentence(str_replace_all(x, "_", " "))
+  )
+}
+
+bart_feature_label <- function(x) {
+  case_when(
+    x == "vague_flag" ~ "Lenguaje vago",
+    x == "mentions_cost" ~ "Menciona costo",
+    x == "mentions_funding_source" ~ "Menciona fuente de financiamiento",
+    x == "fiscal_viability_score" ~ "Respaldo fiscal",
+    x == "has_territory_target" ~ "Define territorio objetivo",
+    x == "has_time_horizon" ~ "Tiene plazo definido",
+    x == "has_quant_target" ~ "Tiene meta cuantitativa",
+    x == "has_population_target" ~ "Define población objetivo",
+    x == "has_evidence" ~ "Cita evidencia",
+    x == "has_macro_anchor" ~ "Menciona anclaje macrofiscal",
+    x == "high_impact_without_funding" ~ "Alto impacto sin fuente",
+    x == "amount_log1p" ~ "Magnitud monetaria mencionada",
+    x == "keyword_hits" ~ "Coincidencias con indicadores oficiales",
+    x == "tokens_n" ~ "Extensión del texto",
+    x == "axis_supervised_prob" ~ "Confianza del eje temático",
+    x == "instrument_supervised_prob" ~ "Confianza del tipo de intervención",
+    str_starts(x, "axis_supervised") ~ paste("Eje:", str_to_lower(axis_label(str_remove(x, "^axis_supervised")))),
+    str_starts(x, "instrument_supervised") ~ paste("Tipo de intervención:", instrument_value_label(str_remove(x, "^instrument_supervised"))),
+    str_starts(x, "fiscal_impact_band") ~ paste("Impacto fiscal:", str_to_lower(str_replace_all(str_remove(x, "^fiscal_impact_band"), "_", " "))),
+    str_starts(x, "map_quality") ~ paste("Calidad del mapeo:", str_to_lower(str_replace_all(str_remove(x, "^map_quality"), "_", " "))),
+    str_starts(x, "direction_consistent_cat") ~ paste("Consistencia de dirección:", consistency_value_label(str_remove(x, "^direction_consistent_cat"))),
+    str_starts(x, "benchmark_status") ~ paste("Estado del contraste:", str_to_lower(str_replace_all(str_remove(x, "^benchmark_status"), "_", " "))),
+    str_starts(x, "data_frequency") ~ paste("Frecuencia del dato:", str_to_lower(str_replace_all(str_remove(x, "^data_frequency"), "_", " "))),
+    TRUE ~ str_to_sentence(str_replace_all(x, "_", " "))
+  )
+}
+
+axis_mix_view <- axis_mix |>
+  filter(axis_agenda != "otros") |>
+  group_by(party) |>
+  mutate(
+    share = n / sum(n),
+    axis_agenda_label = factor(
+      axis_label(axis_agenda),
+      levels = axis_label(c("corrupcion", "institucionalidad", "economia", "empleo", "transporte", "salud", "educacion", "ambiente", "seguridad", "energia", "infraestructura", "social"))
+    )
+  ) |>
+  ungroup()
+
+axis_global <- axis_mix_view |>
+  group_by(axis_agenda, axis_agenda_label) |>
   summarise(share = mean(share, na.rm = TRUE), .groups = "drop") |>
   arrange(desc(share))
 
-axis_cols <- setNames(grDevices::hcl.colors(nrow(axis_global), palette = "Temps"), axis_global$axis_supervised)
+axis_cols <- setNames(grDevices::hcl.colors(nrow(axis_global), palette = "Temps"), axis_global$axis_agenda)
+
+pct_es <- function(x, digits = 1) {
+  paste0(formatC(100 * x, format = "f", digits = digits, decimal.mark = ","), "%")
+}
+
+n_es <- function(x) {
+  format(
+    as.integer(round(x)),
+    big.mark = ".",
+    decimal.mark = ",",
+    trim = TRUE,
+    scientific = FALSE
+  )
+}
+
+topic_phrase <- function(label) {
+  tx <- str_to_lower(str_squish(label))
+  if (str_detect(tx, "salud|hospital|medic|essalud|vacuna")) return("Salud y atención de calidad")
+  if (str_detect(tx, "empleo|trabajo|mype|empresa|productiv")) return("Empleo, empresa y productividad")
+  if (str_detect(tx, "educaci[oó]n|colegio|universidad|docente|beca|formaci[oó]n")) return("Educación y desarrollo de capacidades")
+  if (str_detect(tx, "seguridad|polic[ií]a|delito|extorsi[oó]n|c[aá]rcel|control")) return("Seguridad ciudadana y control del delito")
+  if (str_detect(tx, "corrup|justicia|fiscal[ií]a|contralor|integridad|reforma")) return("Lucha contra la corrupción y reforma de justicia")
+  if (str_detect(tx, "transporte|movilidad|metro|tren|carretera|v[ií]a|puerto|aeropuerto")) return("Transporte e infraestructura conectada")
+  if (str_detect(tx, "agua|clima|ambient|residuo|forest|sostenible")) return("Ambiente, agua y resiliencia climática")
+  if (str_detect(tx, "regional|gobierno|descentral|institucional|gobernanza|gesti[oó]n")) return("Gestión territorial y fortalecimiento institucional")
+  if (str_detect(tx, "programas|digital|informaci[oó]n")) return("Modernización digital y gestión pública")
+  if (str_detect(tx, "valor|mercados|infraestructura|inversi[oó]n|proyectos")) return("Economía productiva e inversión en infraestructura")
+  if (str_detect(tx, "servicios|p[uú]blicos|acceso|calidad")) return("Servicios públicos con acceso y calidad")
+  if (str_detect(tx, "garantizar|social|desarrollo")) return("Desarrollo social y protección de derechos")
+  if (str_detect(tx, "crear|establecer|a[ñn]os")) return("Implementación normativa y metas de ejecución")
+  parts <- str_split(tx, ",\\s*")[[1]]
+  parts <- unique(str_trim(parts))
+  parts <- parts[parts != ""]
+  if (length(parts) == 0) return("Agenda programática prioritaria")
+  parts <- str_to_sentence(parts[1:min(3, length(parts))])
+  paste(parts, collapse = " · ")
+}
 
 topic_dom <- topics |>
   filter(topic_id == dominant_topic) |>
-  mutate(topic_label = str_squish(as.character(topic_label))) |>
-  group_by(topic_id, topic_label) |>
+  mutate(
+    topic_label = str_squish(as.character(topic_label)),
+    topic_group = vapply(topic_label, topic_phrase, character(1)),
+    party = as.character(party)
+  ) |>
+  group_by(topic_group) |>
   summarise(
     proposals_n = n(),
-    parties_n = n_distinct(as.character(party)),
+    parties_n = n_distinct(party),
     .groups = "drop"
   ) |>
   arrange(desc(proposals_n)) |>
   slice_head(n = 12) |>
-  mutate(topic_label = str_sub(topic_label, 1, 64))
+  mutate(topic_label = topic_group) |>
+  select(topic_label, proposals_n, parties_n)
+
+agenda_top3 <- axis_global |>
+  arrange(desc(share)) |>
+  slice_head(n = 3)
+
+agenda_bar_msg <- if (nrow(agenda_top3) >= 3) {
+  paste0(
+    agenda_top3$axis_agenda_label[1], ", ",
+    str_to_lower(agenda_top3$axis_agenda_label[2]), " y ",
+    str_to_lower(agenda_top3$axis_agenda_label[3]),
+    " son los temas con mayor peso en los planes: ",
+    pct_es(agenda_top3$share[1]), ", ",
+    pct_es(agenda_top3$share[2]), " y ",
+    pct_es(agenda_top3$share[3]), ", respectivamente."
+  )
+} else {
+  "Este gráfico resume cuáles son los temas con mayor peso promedio en los planes."
+}
+
+agenda_heat_top <- axis_mix_view |>
+  arrange(desc(share)) |>
+  slice_head(n = 1)
+
+agenda_heat_msg <- if (nrow(agenda_heat_top) == 1) {
+  paste0(
+    "La combinación temática cambia según partido: ",
+    agenda_heat_top$party[1],
+    " concentra su mayor énfasis en ",
+    str_to_lower(agenda_heat_top$axis_agenda_label[1]),
+    " (", pct_es(agenda_heat_top$share[1]), " de su agenda)."
+  )
+} else {
+  "El mosaico permite comparar cómo varía la mezcla temática entre partidos."
+}
+
+agenda_topic_top <- topic_dom |>
+  arrange(desc(proposals_n)) |>
+  slice_head(n = 1)
+
+agenda_topic_msg <- if (nrow(agenda_topic_top) == 1) {
+  paste0(
+    "El tópico más repetido es \"",
+    agenda_topic_top$topic_label[1],
+    "\", con ",
+    n_es(agenda_topic_top$proposals_n[1]),
+    " propuestas dominantes y presencia en ",
+    agenda_topic_top$parties_n[1],
+    " partidos."
+  )
+} else {
+  "Este gráfico muestra los tópicos más repetidos en la agenda programática."
+}
+
+sim_parties <- c(
+  "Renovación Popular",
+  "Fuerza Popular",
+  "Ahora Nación",
+  "Integridad Democrática",
+  "País para Todos",
+  "Alianza para el Progreso",
+  "Cooperación Popular",
+  "Partido del Buen Gobierno",
+  "Perú Primero",
+  "Partido Cívico Obras",
+  "Somos Perú",
+  "Juntos por el Perú"
+)
 
 sim_ord <- sim |>
   mutate(
     party_i = as.character(party_i),
     party_j = as.character(party_j)
+  ) |>
+  filter(party_i %in% sim_parties, party_j %in% sim_parties) |>
+  mutate(
+    party_i = factor(party_i, levels = rev(sim_parties)),
+    party_j = factor(party_j, levels = sim_parties)
   )
 
 umap_sample <- umap |>
   mutate(party = as.character(party)) |>
+  filter(party %in% sim_parties) |>
   group_by(party) |>
   group_modify(~ .x[sample.int(nrow(.x), min(220, nrow(.x))), , drop = FALSE]) |>
-  ungroup()
+  ungroup() |>
+  mutate(party = factor(party, levels = sim_parties)) |>
+  arrange(party)
 
-pair_avg <- axis_edges |>
+axis_nodes_sim <- axis_nodes |>
+  filter(party %in% sim_parties)
+
+axis_edges_sim <- axis_edges |>
+  filter(
+    party_a %in% sim_parties,
+    party_b %in% sim_parties
+  )
+
+axis_summary_sim <- axis_edges_sim |>
+  group_by(axis) |>
+  summarise(
+    edges_n = n(),
+    mean_similarity = mean(similarity, na.rm = TRUE),
+    max_similarity = max(similarity, na.rm = TRUE),
+    parties_connected_n = n_distinct(c(party_a, party_b)),
+    .groups = "drop"
+  )
+
+pair_avg <- axis_edges_sim |>
   mutate(pair_id = if_else(party_a < party_b, paste(party_a, party_b, sep = "__"), paste(party_b, party_a, sep = "__"))) |>
   group_by(pair_id) |>
   summarise(
@@ -132,36 +742,76 @@ pair_avg <- axis_edges |>
     .groups = "drop"
   )
 
-axis_focus <- axis_summary |>
-  arrange(desc(edges_n), desc(mean_similarity)) |>
-  slice_head(n = 1) |>
+axis_network_axes <- axis_summary_sim |>
+  filter(axis != "otros") |>
+  mutate(
+    min_edges = if_else(axis %in% c("salud", "empleo", "ambiente", "educacion", "seguridad"), 1L, 2L)
+  ) |>
+  filter(edges_n >= min_edges) |>
+  mutate(
+    axis_order = match(
+      axis,
+      c("salud", "empleo", "ambiente", "corrupcion", "institucionalidad", "economia", "educacion", "seguridad", "transporte", "social", "infraestructura")
+    )
+  ) |>
+  arrange(axis_order, desc(edges_n), desc(mean_similarity)) |>
   pull(axis)
 
-nodes_focus <- axis_nodes |>
-  filter(axis == axis_focus) |>
-  arrange(desc(node_size)) |>
-  mutate(node_size = as.numeric(node_size))
+sim_top_pair <- sim_ord |>
+  mutate(diag = as.character(party_i) == as.character(party_j)) |>
+  filter(!diag) |>
+  transmute(
+    party_x = pmin(as.character(party_i), as.character(party_j)),
+    party_y = pmax(as.character(party_i), as.character(party_j)),
+    similarity = similarity
+  ) |>
+  distinct() |>
+  arrange(desc(similarity)) |>
+  slice_head(n = 1)
 
-if (nrow(nodes_focus) > 1) {
-  ang <- seq(0, 2 * pi, length.out = nrow(nodes_focus) + 1)[-1]
-  nodes_focus <- nodes_focus |>
-    mutate(
-      x = cos(ang),
-      y = sin(ang),
-      party = as.character(party),
-      color = unname(party_cols[as.character(party)])
-    )
+sim_heat_msg <- if (nrow(sim_top_pair) == 1) {
+  paste0(
+    "Entre estas 12 candidaturas, la mayor cercanía aparece entre ",
+    sim_top_pair$party_x[1], " y ", sim_top_pair$party_y[1],
+    ", con una similitud de ", formatC(sim_top_pair$similarity[1], format = "f", digits = 2, decimal.mark = "."),
+    " en una escala de 0 (similitud nula) al 1 (similitud total)."
+  )
 } else {
-  nodes_focus <- nodes_focus |>
-    mutate(x = 0, y = 0, party = as.character(party), color = "#111111")
+  "El mapa de calor compara cuán parecidos son los planes entre estas candidaturas."
 }
 
-edges_focus <- axis_edges |>
-  filter(axis == axis_focus) |>
-  arrange(desc(similarity)) |>
-  slice_head(n = min(40, nrow(axis_edges |> filter(axis == axis_focus)))) |>
-  left_join(nodes_focus |> select(party, x_a = x, y_a = y), by = c("party_a" = "party")) |>
-  left_join(nodes_focus |> select(party, x_b = x, y_b = y), by = c("party_b" = "party"))
+umap_party_centers <- umap_sample |>
+  group_by(party) |>
+  summarise(
+    umap1 = mean(umap1, na.rm = TRUE),
+    umap2 = mean(umap2, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+umap_far_pair <- tidyr::crossing(
+  a = seq_len(nrow(umap_party_centers)),
+  b = seq_len(nrow(umap_party_centers))
+) |>
+  filter(a < b) |>
+  transmute(
+    party_a = umap_party_centers$party[a],
+    party_b = umap_party_centers$party[b],
+    dist = sqrt((umap_party_centers$umap1[a] - umap_party_centers$umap1[b])^2 + (umap_party_centers$umap2[a] - umap_party_centers$umap2[b])^2)
+  ) |>
+  arrange(desc(dist)) |>
+  slice_head(n = 1)
+
+umap_msg <- "En el mapa semántico, cada punto alude a una propuesta. Perú Primero, el grupo de puntos rojos en el cuadrante superior izquierdo, aparece entre los perfiles más alejados, lo que sugiere una agenda más diferenciada del resto."
+
+red_msg <- if (length(axis_network_axes) > 0) {
+  paste0(
+    "Estas redes comparan afinidades temáticas en ",
+    paste(axis_label(axis_network_axes), collapse = ", "),
+    ". Los enlaces más marcados muestran dónde dos candidaturas se parecen más dentro de un mismo tema."
+  )
+} else {
+  "Estas redes muestran qué partidos se acercan más entre sí dentro de cada tema relevante."
+}
 
 comp <- propuestas |>
   group_by(party) |>
@@ -169,7 +819,7 @@ comp <- propuestas |>
     score_prom = mean(concreteness_score, na.rm = TRUE),
     pct_quant = mean(has_quant_target, na.rm = TRUE) * 100,
     pct_time = mean(has_time_horizon, na.rm = TRUE) * 100,
-    pct_inst = mean(instrument_supervised != "unspecified", na.rm = TRUE) * 100,
+    pct_inst = mean(instrument_type != "unspecified", na.rm = TRUE) * 100,
     pct_cost_fund = mean(mentions_cost | mentions_funding_source, na.rm = TRUE) * 100,
     .groups = "drop"
   )
@@ -181,7 +831,7 @@ comp_long <- comp |>
       feature,
       pct_quant = "Meta cuantitativa",
       pct_time = "Horizonte temporal",
-      pct_inst = "Instrumento definido",
+      pct_inst = "Tipo de intervención",
       pct_cost_fund = "Costo o financiamiento"
     )
   )
@@ -193,11 +843,23 @@ blind_party <- blind |>
 
 pop_party <- pop |>
   group_by(party, population_group) |>
-  summarise(coverage_share = mean(mentions_group, na.rm = TRUE), .groups = "drop")
+  summarise(coverage_share = mean(mentions_group, na.rm = TRUE), .groups = "drop") |>
+  mutate(
+    population_group_label = factor(
+      population_label(population_group),
+      levels = population_label(c("adulto_mayor", "agricultores", "discapacidad", "jovenes", "mujeres", "mype_empresas", "ninos_ninas", "policia_ffaa", "pueblos_indigenas", "trabajadores"))
+    )
+  )
 
 terr_party <- terr |>
   group_by(party, territory_group) |>
-  summarise(coverage_share = mean(mentions_group, na.rm = TRUE), .groups = "drop")
+  summarise(coverage_share = mean(mentions_group, na.rm = TRUE), .groups = "drop") |>
+  mutate(
+    territory_group_label = factor(
+      territory_label(territory_group),
+      levels = territory_label(c("costa", "distritos_local", "frontera", "lima_callao", "nacional", "regiones_provincias", "rural", "selva_amazonia", "sierra", "urbano"))
+    )
+  )
 
 dup_pair <- dup_pairs |>
   mutate(pair = if_else(party_a < party_b, paste(party_a, party_b, sep = " ↔ "), paste(party_b, party_a, sep = " ↔ "))) |>
@@ -222,8 +884,19 @@ fiscal_rank <- fiscal_party |>
   ) |>
   arrange(desc(avg_fiscal_viability))
 
-fiscal_risk <- fiscal_party |>
-  arrange(desc(high_impact_without_funding_n)) |>
+fiscal_risk <- fiscal_detail |>
+  mutate(
+    costed_without_funding = (mentions_cost | monetary_mentions > 0) & !mentions_funding_source
+  ) |>
+  group_by(party) |>
+  summarise(
+    costed_without_funding_n = sum(costed_without_funding, na.rm = TRUE),
+    costed_n = sum(mentions_cost | monetary_mentions > 0, na.rm = TRUE),
+    costed_without_funding_pct = if_else(costed_n > 0, 100 * costed_without_funding_n / costed_n, 0),
+    .groups = "drop"
+  ) |>
+  arrange(desc(costed_without_funding_n), desc(costed_without_funding_pct)) |>
+  filter(costed_without_funding_n > 0) |>
   slice_head(n = 20)
 
 bench_party <- bench_axis |>
@@ -232,7 +905,13 @@ bench_party <- bench_axis |>
   arrange(desc(avg_alignment_score))
 
 axis_heat <- bench_axis |>
-  mutate(axis_supervised = ifelse(is.na(axis_supervised) | axis_supervised == "", "otros", axis_supervised))
+  mutate(
+    axis_supervised = ifelse(is.na(axis_supervised) | axis_supervised == "", "otros", axis_supervised),
+    axis_supervised_label = factor(
+      axis_label(axis_supervised),
+      levels = axis_label(c("corrupcion", "institucionalidad", "economia", "empleo", "transporte", "salud", "educacion", "ambiente", "seguridad", "energia", "infraestructura", "social", "otros"))
+    )
+  )
 
 indicator_top <- bench_ind |>
   group_by(indicator_name, source_institution) |>
@@ -242,6 +921,7 @@ indicator_top <- bench_ind |>
     .groups = "drop"
   ) |>
   arrange(desc(proposals_n), desc(avg_alignment_score)) |>
+  mutate(source_institution = source_label(source_institution)) |>
   slice_head(n = 12)
 
 kpi_stack <- kpi_party |>
@@ -251,27 +931,25 @@ kpi_stack <- kpi_party |>
     media = kpi_media_n,
     baja = kpi_baja_n
   ) |>
-  pivot_longer(cols = c(alta, media, baja), names_to = "tier", values_to = "n")
+  pivot_longer(cols = c(alta, media, baja), names_to = "tier", values_to = "n") |>
+  mutate(tier = factor(tier_label(tier), levels = c("Alta", "Media", "Baja")))
 
-milestones_axis <- kpi_tracker |>
-  select(axis_supervised, milestone_2027, milestone_2029, milestone_2031) |>
-  pivot_longer(cols = starts_with("milestone_"), names_to = "milestone", values_to = "value") |>
+kpi_axis_view <- kpi_axis |>
   mutate(
-    year = as.integer(gsub("milestone_", "", milestone)),
-    axis_supervised = ifelse(is.na(axis_supervised) | axis_supervised == "", "otros", axis_supervised)
+    axis_supervised_label = axis_label(axis_supervised),
+    verificables_pct = verificables_pct * 100
   ) |>
-  group_by(axis_supervised, year) |>
-  summarise(avg_value = mean(as.numeric(value), na.rm = TRUE), .groups = "drop") |>
-  filter(is.finite(avg_value))
+  arrange(desc(verificables_pct))
 
 imp_top <- bart_imp |>
   arrange(desc(importance_pct)) |>
   slice_head(n = 15) |>
+  mutate(feature_label = bart_feature_label(feature)) |>
   arrange(importance_pct)
 
 pred_plot <- bart_pred |>
-  mutate(actual_tier = as.character(actual_tier)) |>
-  slice_sample(n = min(3000, nrow(bart_pred)))
+  mutate(actual_tier = factor(tier_label(as.character(actual_tier)), levels = c("Baja", "Media", "Alta"))) |>
+  slice_sample(n = min(1800, nrow(bart_pred)))
 
 top_features <- bart_imp |>
   arrange(desc(importance_pct)) |>
@@ -280,6 +958,7 @@ top_features <- bart_imp |>
 
 pdp_top <- bart_pdp |>
   filter(feature %in% top_features) |>
+  mutate(feature_label = bart_feature_label(feature)) |>
   group_by(feature) |>
   arrange(feature_value, .by_group = TRUE) |>
   mutate(x_rank = row_number()) |>
@@ -287,21 +966,339 @@ pdp_top <- bart_pdp |>
 
 party_res <- bart_diag |>
   arrange(residual_mean) |>
-  mutate(resid_sign = if_else(residual_mean >= 0, "Positivo", "Negativo"))
+  mutate(resid_sign = if_else(residual_mean >= 0, "Subestima", "Sobreestima"))
+
+pan_top2 <- by_party |>
+  slice_head(n = min(2, nrow(by_party)))
+
+pan_best_score <- by_party |>
+  arrange(desc(score_prom)) |>
+  slice_head(n = 1)
+
+pan_bar_msg <- if (nrow(pan_top2) >= 2 && nrow(pan_best_score) == 1) {
+  paste0(
+    pan_top2$party[1], " e ", pan_top2$party[2],
+    " concentran el mayor volumen de propuestas. Aun así, el liderazgo en cantidad no coincide necesariamente con la mayor concreción promedio, que aquí destaca en ",
+    pan_best_score$party[1], "."
+  )
+} else {
+  "El volumen de propuestas está concentrado en pocos partidos y no coincide automáticamente con una mayor concreción del plan."
+}
+
+pan_cor <- suppressWarnings(stats::cor(by_party$propuestas_n, by_party$score_prom, use = "complete.obs"))
+pan_scatter_msg <- if (is.finite(pan_cor)) {
+  relation <- if (abs(pan_cor) < 0.2) {
+    "La relación entre cantidad y concreción es débil"
+  } else if (pan_cor > 0) {
+    "La relación entre cantidad y concreción es positiva, pero no lineal"
+  } else {
+    "La relación entre cantidad y concreción es inversa"
+  }
+  paste0(
+    relation, ": acumular más propuestas no garantiza un plan más claro y, en varios casos, el volumen alto convive con niveles medios o bajos de definición operativa."
+  )
+} else {
+  "Más propuestas no garantiza un plan más claro: la dispersión muestra trayectorias muy distintas entre volumen y concreción."
+}
+
+con_top <- by_party |>
+  arrange(desc(score_prom)) |>
+  slice_head(n = 1)
+
+con_low <- by_party |>
+  arrange(score_prom) |>
+  slice_head(n = 1)
+
+con_bar_msg <- if (nrow(con_top) == 1 && nrow(con_low) == 1) {
+  paste0(
+    con_top$party[1], " aparece como uno de los partidos que ponen medidas más concretas, mientras que ",
+    con_low$party[1],
+    " se ubica en el extremo opuesto."
+  )
+} else {
+  "La concreción operativa no está distribuida de manera uniforme y varios planes todavía dependen de formulaciones generales."
+}
+
+comp_feature_summary <- comp_long |>
+  group_by(feature) |>
+  summarise(value = mean(value, na.rm = TRUE), .groups = "drop") |>
+  arrange(desc(value))
+
+con_components_msg <- "El componente más presente es tipo de intervención, mientras que el más rezagado es horizonte temporal."
+
+blind_top <- blind_party |>
+  slice_head(n = 1)
+
+cov_bar_msg <- if (nrow(blind_top) == 1) {
+  paste0(
+    blind_top$party[1],
+    " es el partido que acumula más vacíos de cobertura en esta lectura, lo que indica una agenda menos equilibrada entre grupos y territorios."
+  )
+} else {
+  "Los vacíos revelan qué partidos dejan más grupos o territorios sin atención explícita, incluso cuando su volumen programático es alto."
+}
+
+pop_focus <- pop_party |>
+  group_by(population_group, population_group_label) |>
+  summarise(coverage_share = mean(coverage_share, na.rm = TRUE), .groups = "drop") |>
+  arrange(desc(coverage_share)) |>
+  slice_head(n = 1)
+
+cov_pop_msg <- if (nrow(pop_focus) == 1) {
+  paste0(
+    "La cobertura poblacional se concentra más en ",
+    str_to_lower(pop_focus$population_group_label[1]),
+    ", lo que ayuda a identificar qué grupos reciben mayor atención comparada en los planes."
+  )
+} else {
+  "La matriz poblacional muestra si la agenda reparte su atención entre distintos grupos o se concentra en pocos destinatarios."
+}
+
+terr_focus <- terr_party |>
+  group_by(territory_group, territory_group_label) |>
+  summarise(coverage_share = mean(coverage_share, na.rm = TRUE), .groups = "drop") |>
+  arrange(desc(coverage_share)) |>
+  slice_head(n = 1)
+
+cov_terr_msg <- if (nrow(terr_focus) == 1) {
+  paste0(
+    "La atención territorial se concentra más en ",
+    str_to_lower(terr_focus$territory_group_label[1]),
+    ", una señal útil para ver si los planes amplían o estrechan su mirada del país."
+  )
+} else {
+  "La cobertura territorial deja ver qué partidos distribuyen mejor sus propuestas entre realidades distintas y cuáles mantienen una agenda más sesgada."
+}
+
+dup_top <- dup_sum |>
+  arrange(desc(duplicated_proposals_n)) |>
+  slice_head(n = 1)
+
+dup_pair_focus <- dup_pairs |>
+  transmute(pair = if_else(party_a < party_b, paste(party_a, party_b, sep = " y "), paste(party_b, party_a, sep = " y "))) |>
+  count(pair, sort = TRUE) |>
+  slice_head(n = 1)
+
+dup_msg <- if (nrow(dup_pair_focus) == 1) {
+  paste0(
+    "Tras limpiar texto repetido y evitar sobreconteos, los casos que permanecen se concentran entre ",
+    dup_pair_focus$pair[1],
+    "."
+  )
+} else {
+  "Aquí solo contamos propuestas muy similares entre partidos después de limpiar boilerplate y evitar sobreconteos."
+}
+
+contr_top_msg_row <- contr_party |>
+  slice_head(n = 1)
+
+contr_msg <- if (nrow(contr_top_msg_row) == 1) {
+  paste0(
+    "Después de depurar las reglas, la única alerta que permanece aparece en ",
+    contr_top_msg_row$party[1],
+    " y se concentra en ",
+    str_replace_all(str_to_lower(contr_top_msg_row$dimension[1]), "_", " "),
+    "."
+  )
+} else {
+  "Aquí se muestran posibles tensiones internas entre propuestas que empujan en direcciones opuestas dentro de un mismo plan."
+}
+
+fiscal_top <- fiscal_rank |>
+  slice_head(n = 1)
+
+fiscal_joint_top <- fiscal_rank |>
+  filter(proposals_n >= 20) |>
+  mutate(
+    z_score = as.numeric(scale(avg_fiscal_viability)),
+    z_pct = as.numeric(scale(pct_alta_viabilidad)),
+    combo = z_score + z_pct
+  ) |>
+  arrange(desc(combo))
+
+fiscal_score_msg <- if (nrow(fiscal_joint_top) >= 3) {
+  paste0(
+    fiscal_joint_top$party[1], ", ",
+    fiscal_joint_top$party[2], " y ",
+    fiscal_joint_top$party[3],
+    " aparecen mejor posicionados porque reúnen una mayor proporción de propuestas con buen respaldo y, al mismo tiempo, mantienen un respaldo fiscal promedio alto."
+  )
+} else if (nrow(fiscal_top) == 1) {
+  paste0(
+    fiscal_top$party[1],
+    " lidera el promedio de viabilidad fiscal, una señal de mayor respaldo entre promesa, costo y sustento, aunque conviene leer ese resultado junto al volumen total del plan."
+  )
+} else {
+  "Este cruce ayuda a ver qué partidos combinan mejor el respaldo fiscal promedio con una mayor proporción de propuestas bien sustentadas."
+}
+
+fiscal_risk_top <- fiscal_risk |>
+  slice_head(n = 1)
+
+fiscal_risk_msg <- if (nrow(fiscal_risk_top) == 1) {
+  paste0(
+    fiscal_risk_top$party[1],
+    " concentra más propuestas con costo o monto mencionado pero sin una fuente explícita de financiamiento, un foco de riesgo para la factibilidad del plan."
+  )
+} else {
+  "Este gráfico muestra qué partidos acumulan más propuestas con costo o monto mencionado, pero sin una fuente explícita de financiamiento."
+}
+
+bench_top <- bench_party |>
+  slice_head(n = 1)
+
+bench_bar_msg <- if (nrow(bench_top) == 1) {
+  paste0(
+    bench_top$party[1],
+    " aparece como el partido con mayor conexión con las brechas oficiales utilizadas en esta comparación, lo que indica una agenda más cercana a problemas medibles del país."
+  )
+} else {
+  "La conexión general resume qué tan cerca está cada plan de problemas públicos medibles y no solo de consignas amplias."
+}
+
+bench_axis_focus <- axis_heat |>
+  group_by(axis_supervised) |>
+  summarise(avg_alignment_score = mean(avg_alignment_score, na.rm = TRUE), .groups = "drop") |>
+  arrange(desc(avg_alignment_score)) |>
+  slice_head(n = 1)
+
+bench_heat_msg <- if (nrow(bench_axis_focus) == 1) {
+  paste0(
+    "En promedio, el eje con mayor conexión con datos oficiales es ",
+    str_to_lower(axis_label(bench_axis_focus$axis_supervised[1])),
+    ", aunque la intensidad de esa conexión cambia bastante entre partidos."
+  )
+} else {
+  "La lectura por tema revela que un mismo partido puede estar bien conectado con algunas brechas y rezagado en otras."
+}
+
+indicator_focus <- indicator_top |>
+  slice_head(n = 1)
+
+bench_ind_msg <- if (nrow(indicator_focus) == 1) {
+  paste0(
+    "El indicador más usado en este contraste es ",
+    indicator_focus$indicator_name[1],
+    ", lo que muestra qué evidencia externa está sosteniendo con más fuerza la comparación entre planes."
+  )
+} else {
+  "Los indicadores más frecuentes muestran qué referencias concretas sostienen la comparación externa entre planes y brechas del país."
+}
+
+kpi_top <- kpi_party |>
+  arrange(desc(verificables_pct)) |>
+  slice_head(n = 1)
+
+kpi_bar_msg <- if (nrow(kpi_top) == 1) {
+  paste0(
+    kpi_top$party[1],
+    " es el partido con mayor proporción de propuestas traducibles en indicadores verificables, una ventaja para el seguimiento ciudadano."
+  )
+} else {
+  "El porcentaje verificable muestra qué parte del plan podría seguirse con evidencia observable durante la gestión."
+}
+
+kpi_tier_focus <- kpi_stack |>
+  group_by(tier) |>
+  summarise(n = sum(n, na.rm = TRUE), .groups = "drop") |>
+  arrange(desc(n)) |>
+  slice_head(n = 1)
+
+kpi_stack_msg <- if (nrow(kpi_tier_focus) == 1) {
+  paste0(
+    "En el conjunto de partidos predominan los indicadores de calidad ",
+    str_to_lower(kpi_tier_focus$tier[1]),
+    ", lo que ayuda a distinguir entre capacidad de seguimiento básica y seguimiento más sólido."
+  )
+} else {
+  "La composición por niveles ayuda a distinguir entre planes que solo acumulan indicadores y planes que los formulan con mejor calidad."
+}
+
+milestone_focus <- kpi_axis_view |>
+  arrange(desc(verificables_pct)) |>
+  slice_head(n = 1)
+
+kpi_line_msg <- if (nrow(milestone_focus) == 1) {
+  paste0(
+    "El tema donde una mayor proporción de propuestas se puede monitorear es ",
+    str_to_lower(milestone_focus$axis_supervised_label[1]),
+    ", lo que ayuda a ver dónde el seguimiento ciudadano tiene mejores condiciones."
+  )
+} else {
+  "La lectura por temas ayuda a ver en qué parte del plan el seguimiento ciudadano tiene mejores condiciones de arranque."
+}
+
+bart_top_feature <- bart_imp |>
+  arrange(desc(importance_pct)) |>
+  slice_head(n = 1)
+
+bart_imp_msg <- if (nrow(bart_top_feature) == 1) {
+  paste0(
+    "La variable que más pesa en la implementabilidad es ",
+    bart_feature_label(bart_top_feature$feature[1]),
+    ", por encima del resto de atributos evaluados por el modelo."
+  )
+} else {
+  "La importancia relativa ordena los rasgos que más ayudan a explicar por qué una propuesta luce más implementable que otra."
+}
+
+bart_fit_gap <- mean(abs(pred_plot$implementation_readiness_score - pred_plot$pred_readiness_score), na.rm = TRUE)
+
+bart_fit_msg <- if (is.finite(bart_fit_gap)) {
+  paste0(
+    "El ajuste general del modelo muestra una distancia media de ",
+    formatC(bart_fit_gap, format = "f", digits = 1, decimal.mark = ","),
+    " puntos entre el valor observado y el predicho, suficiente para leer patrones pero no como una verdad exacta para cada propuesta."
+  )
+} else {
+  "Cuanto más cerca están los puntos de la diagonal, mejor reproduce el modelo la implementabilidad observada."
+}
+
+bart_pdp_focus <- pdp_top |>
+  group_by(feature) |>
+  summarise(spread = max(pred_mean, na.rm = TRUE) - min(pred_mean, na.rm = TRUE), .groups = "drop") |>
+  arrange(desc(spread)) |>
+  slice_head(n = 1)
+
+bart_pdp_msg <- if (nrow(bart_pdp_focus) == 1) {
+  paste0(
+    "El factor que más mueve la predicción cuando cambia su valor es ",
+    bart_feature_label(bart_pdp_focus$feature[1]),
+    ", una pista clara sobre qué rasgo altera más la implementabilidad esperada."
+  )
+} else {
+  "Las curvas de dependencia parcial muestran cómo cambia la implementabilidad esperada cuando varía cada atributo relevante."
+}
+
+bart_res_focus <- party_res |>
+  mutate(abs_resid = abs(residual_mean)) |>
+  arrange(desc(abs_resid)) |>
+  slice_head(n = 1)
+
+bart_res_msg <- if (nrow(bart_res_focus) == 1) {
+  paste0(
+    bart_res_focus$party[1],
+    " es el partido donde el modelo se equivoca más en promedio, una señal de que su perfil combina rasgos menos previsibles que el resto."
+  )
+} else {
+  "Los residuos por partido muestran dónde el modelo tiende a sobreestimar o subestimar la calidad operativa de las propuestas."
+}
 ```
 
 ```{=html}
 <div id="inicio"></div>
 ```
 
-<div class="intro">
-  <div class="meta-line"><span><strong>Autor:</strong> Noam López Villanes</span><span><strong>Fuente:</strong> planes de gobierno oficiales presentados ante el Jurado Nacional de Elecciones (JNE)</span></div>
-  <p class="lead">En esta elección habrá muchos candidatos, muchas promesas y muy poco tiempo para leer decenas de planes completos. Esta web existe para resolver ese problema: convertir documentos largos en una lectura clara, útil y rápida para que puedas comparar mejor antes de votar.</p>
-</div>
+```{=html}
+<section class="hero-stage">
+  <h1 class="hero-main-title">Planómetro 2026</h1>
+  <div class="meta-line"><span>Noam López Villanes</span></div>
+  <p class="lead">En estas elecciones existen muchos candidatos, muchas promesas y muy poco tiempo para leer los planes de gobierno completos. En este sitio hemos convertido los documentos largos en un conjunto de visualizaciones para identificar similitudes y diferencias entre planes, y así ayudarte a elegir con mayor conocimiento. Si quieres replicar los análisis revisa la sección Métodos.</p>
+```
 
 ```{r results='asis'}
 cat(sprintf(
-  '<div class="kpi-inline">\n  <div class="kpi-item"><div class="kpi-label">Partidos</div><div class="kpi-value">%d</div></div>\n  <div class="kpi-item"><div class="kpi-label">Propuestas</div><div class="kpi-value">%s</div></div>\n  <div class="kpi-item"><div class="kpi-label">Meta cuantitativa</div><div class="kpi-value">%.1f%%</div></div>\n  <div class="kpi-item"><div class="kpi-label">Horizonte temporal</div><div class="kpi-value">%.1f%%</div></div>\n  <div class="kpi-item"><div class="kpi-label">Concreción promedio</div><div class="kpi-value">%.1f / 100</div></div>\n</div>',
+  '<div class="kpi-inline">\n  <div class="kpi-item"><div class="kpi-label">Planes</div><div class="kpi-value">%d</div><div class="kpi-desc">Se revisaron los planes de gobierno de cada partido.</div></div>\n  <div class="kpi-item"><div class="kpi-label">Propuestas</div><div class="kpi-value">%s</div><div class="kpi-desc">Total de propuestas identificadas en los planes procesados.</div></div>\n  <div class="kpi-item"><div class="kpi-label">Metas claras</div><div class="kpi-value">%.1f%%</div><div class="kpi-desc">Propuestas que incluyen una meta concreta y medible.</div></div>\n  <div class="kpi-item"><div class="kpi-label">Plazo definido</div><div class="kpi-value">%.1f%%</div><div class="kpi-desc">Propuestas que indican un plazo explícito para cumplirse.</div></div>\n  <div class="kpi-item"><div class="kpi-label">Claridad</div><div class="kpi-value">%.1f</div><div class="kpi-desc">Nivel promedio de claridad operativa de las propuestas.</div></div>\n</div>',
   kpi$partidos,
   format(kpi$propuestas_n, big.mark = ",", scientific = FALSE),
   kpi$pct_cuant,
@@ -312,22 +1309,17 @@ cat(sprintf(
 
 ```{=html}
 <div class="action-row">
-  <a class="btn-pill btn-dark" href="#metodos">Ver métodos</a>
+  <a class="btn-pill btn-dark" href="#metodos">Métodos</a>
   <a class="btn-pill btn-light" href="#contacto">Contacto</a>
 </div>
+</section>
 ```
 
-### Qué aprenderás aquí
+## Cantidad y claridad {#panorama}
 
-1. Qué partidos presentan más propuestas y cómo se relaciona ese volumen con la claridad de ejecución.
-2. En qué temas se concentra la agenda y cómo se parecen o diferencian los partidos.
-3. Qué vacíos de cobertura aparecen para población y territorio.
-4. Dónde hay riesgos de coherencia interna, viabilidad fiscal y trazabilidad de metas.
-5. Qué conclusiones útiles puedes sacar, sin leer cientos de páginas.
+En esta vista comparamos cuántas propuestas contiene cada plan y qué nivel de concreción promedio alcanza. La lectura conjunta permite distinguir entre planes extensos y planes realmente utilizables, sin confundir volumen con claridad. Para conocer cómo se ha calculado la concreción, revisa la sección de Métodos.
 
-## Panorama {#panorama}
-
-Empezamos por el mapa general: cuánto propone cada partido y cómo se distribuye ese volumen en el sistema completo.
+<div class="chart-title">Qué partidos proponen más</div>
 
 ```{r results='asis'}
 p_pan <- plot_ly(
@@ -344,11 +1336,15 @@ p_pan <- plot_ly(
     paper_bgcolor = "#ffffff",
     plot_bgcolor = "#ffffff",
     font = list(color = "#111111", family = plot_font_stack),
-    xaxis = list(title = "Propuestas", color = "#6b6b6b", gridcolor = "#ececec"),
-    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
+    xaxis = list(title = "Propuestas", color = "#6b6b6b", gridcolor = "#ececec", domain = c(0.14, 1)),
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE, ticks = "outside", ticklen = 7, ticklabelstandoff = 20)
   )
 save_iframe(p_pan, "index_panorama_bar.html", height = 720)
 ```
+
+<p class="chart-analysis">`r pan_bar_msg`</p>
+
+<div class="chart-title">Cantidad no siempre es claridad</div>
 
 ```{r results='asis'}
 p_pan_scatter <- plot_ly(
@@ -360,8 +1356,8 @@ p_pan_scatter <- plot_ly(
   color = ~party,
   colors = party_cols,
   marker = list(size = 9, opacity = 0.82),
-  text = ~party,
-  hovertemplate = "<b>%{text}</b><br>Propuestas: %{x}<br>Concreción: %{y:.1f}<extra></extra>"
+  customdata = ~party,
+  hovertemplate = "<b>%{customdata}</b><br>Propuestas: %{x}<br>Concreción: %{y:.1f}<extra></extra>"
 ) |>
   layout(
     paper_bgcolor = "#ffffff",
@@ -374,20 +1370,22 @@ p_pan_scatter <- plot_ly(
 save_iframe(p_pan_scatter, "index_panorama_scatter.html", height = 560)
 ```
 
-Este doble vistazo evita confundir cantidad con calidad: un plan puede ser largo, pero no necesariamente más ejecutable.
+<p class="chart-analysis">`r pan_scatter_msg`</p>
 
 ## Agenda {#agenda}
 
-Después del volumen, viene la pregunta de fondo: en qué temas insiste cada partido y dónde hay más o menos atención.
+Después del volumen, esta sección mira en qué temas insiste cada partido y dónde se concentra la atención programática. La comparación combina peso promedio, mezcla temática por partido y repetición de tópicos para entender cómo se reparte la agenda de campaña.
+
+<div class="chart-title">Qué temas pesan más en la campaña</div>
 
 ```{r results='asis'}
 p_ag <- plot_ly(
   axis_global,
   x = ~share,
-  y = ~reorder(axis_supervised, share),
+  y = ~reorder(axis_agenda_label, share),
   type = "bar",
   orientation = "h",
-  marker = list(color = unname(axis_cols[axis_global$axis_supervised])),
+  marker = list(color = unname(axis_cols[axis_global$axis_agenda])),
   hovertemplate = "Eje: %{y}<br>Peso promedio: %{x:.1%}<extra></extra>"
 ) |>
   layout(
@@ -395,30 +1393,47 @@ p_ag <- plot_ly(
     plot_bgcolor = "#ffffff",
     font = list(color = "#111111", family = plot_font_stack),
     xaxis = list(title = "Participación", tickformat = ".0%", color = "#6b6b6b", gridcolor = "#ececec"),
-    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE, ticklabelstandoff = 20)
   )
 save_iframe(p_ag, "index_agenda_bar.html", height = 560)
 ```
 
+<p class="chart-analysis">`r agenda_bar_msg`</p>
+
+<div class="chart-title">Cómo cambia la agenda según el partido</div>
+
 ```{r results='asis'}
 p_ag_heat <- plot_ly(
-  axis_mix,
-  x = ~axis_supervised,
+  axis_mix_view,
+  x = ~axis_agenda_label,
   y = ~party,
   z = ~share,
   type = "heatmap",
   colors = c("#ffffff", "#d1e6f7", "#7fb3d5", "#2e86c1"),
+  colorbar = list(title = list(text = "Participación")),
   hovertemplate = "Partido: %{y}<br>Eje: %{x}<br>Peso: %{z:.1%}<extra></extra>"
 ) |>
   layout(
     paper_bgcolor = "#ffffff",
     plot_bgcolor = "#ffffff",
     font = list(color = "#111111", family = plot_font_stack),
-    xaxis = list(title = "", tickangle = -25, color = "#6b6b6b"),
-    yaxis = list(title = "", color = "#6b6b6b")
+    xaxis = list(
+      title = "",
+      tickangle = 0,
+      color = "#6b6b6b",
+      automargin = TRUE,
+      tickmode = "array",
+      tickvals = unique(as.character(axis_mix_view$axis_agenda_label)),
+      ticktext = wrap_tick(unique(as.character(axis_mix_view$axis_agenda_label)))
+    ),
+    yaxis = list(title = "", color = "#6b6b6b", ticklabelstandoff = 20)
   )
 save_iframe(p_ag_heat, "index_agenda_heatmap.html", height = 700)
 ```
+
+<p class="chart-analysis">`r agenda_heat_msg`</p>
+
+<div class="chart-title">Los temas que más se repiten</div>
 
 ```{r results='asis'}
 p_topic <- plot_ly(
@@ -436,16 +1451,18 @@ p_topic <- plot_ly(
     plot_bgcolor = "#ffffff",
     font = list(color = "#111111", family = plot_font_stack),
     xaxis = list(title = "N.° de propuestas", color = "#6b6b6b", gridcolor = "#ececec"),
-    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE, ticklabelstandoff = 20)
   )
 save_iframe(p_topic, "index_agenda_topics.html", height = 560)
 ```
 
-Con estos tres cortes se ve no solo el tema dominante del sistema, sino también cómo cambia la mezcla temática por partido y qué tópicos se repiten más.
+<p class="chart-analysis">`r agenda_topic_msg`</p>
 
 ## Similitud {#similitud}
 
-Aquí comparamos lenguaje y contenido entre partidos para detectar cercanías reales y zonas de diferenciación.
+Aquí comparamos lenguaje y contenido entre 12 candidaturas con mayor visibilidad pública para detectar cercanías reales y zonas de diferenciación. La sección combina similitud global, mapa semántico y red temática para ver no solo quiénes se parecen, sino también en qué tipo de propuestas aparece esa cercanía.
+
+<div class="chart-title">Qué candidaturas se parecen más</div>
 
 ```{r results='asis'}
 p_sim <- plot_ly(
@@ -455,6 +1472,7 @@ p_sim <- plot_ly(
   z = ~similarity,
   type = "heatmap",
   colors = c("#f7fbff", "#c6dbef", "#6baed6", "#3182bd", "#08519c"),
+  colorbar = list(title = list(text = "Similitud")),
   hovertemplate = "%{y} vs %{x}<br>Similitud: %{z:.3f}<extra></extra>"
 ) |>
   layout(
@@ -462,10 +1480,14 @@ p_sim <- plot_ly(
     plot_bgcolor = "#ffffff",
     font = list(color = "#111111", family = plot_font_stack),
     xaxis = list(title = "", tickangle = -35, color = "#6b6b6b"),
-    yaxis = list(title = "", color = "#6b6b6b")
+    yaxis = list(title = "", color = "#6b6b6b", ticklabelstandoff = 20)
   )
 save_iframe(p_sim, "index_similitud_heatmap.html", height = 620)
 ```
+
+<p class="chart-analysis">`r sim_heat_msg`</p>
+
+<div class="chart-title">Dónde se agrupan las propuestas</div>
 
 ```{r results='asis'}
 p_umap <- plot_ly(
@@ -473,11 +1495,12 @@ p_umap <- plot_ly(
   x = ~umap1,
   y = ~umap2,
   color = ~party,
+  customdata = ~party,
   colors = party_cols,
   type = "scatter",
   mode = "markers",
   marker = list(size = 6, opacity = 0.7),
-  hovertemplate = "Partido: %{color}<br>x: %{x:.2f}<br>y: %{y:.2f}<extra></extra>"
+  hovertemplate = "Partido: %{customdata}<br>x: %{x:.2f}<br>y: %{y:.2f}<extra></extra>"
 ) |>
   layout(
     paper_bgcolor = "#ffffff",
@@ -489,50 +1512,93 @@ p_umap <- plot_ly(
 save_iframe(p_umap, "index_similitud_umap.html", height = 620)
 ```
 
+<p class="chart-analysis">`r umap_msg`</p>
+
+<div class="chart-title">Afinidades por tema</div>
+
 ```{r results='asis'}
-if (nrow(edges_focus) > 0 && nrow(nodes_focus) > 1) {
-  p_red <- plot_ly()
-  p_red <- p_red |>
-    add_segments(
-      data = edges_focus,
-      x = ~x_a, y = ~y_a, xend = ~x_b, yend = ~y_b,
-      hoverinfo = "text",
-      text = ~paste0(party_a, " ↔ ", party_b, "<br>Similitud: ", round(similarity, 3)),
-      line = list(color = "#c7cdd6", width = 1.2),
-      showlegend = FALSE
-    ) |>
-    add_markers(
-      data = nodes_focus,
-      x = ~x, y = ~y,
-      marker = list(size = pmax(9, sqrt(nodes_focus$node_size) * 2.4), color = nodes_focus$color, line = list(color = "#ffffff", width = 1)),
-      text = ~paste0("Partido: ", party, "<br>Propuestas en eje: ", proposals_n, "<br>Concreción: ", round(avg_concreteness, 1)),
-      hoverinfo = "text",
-      showlegend = FALSE
-    ) |>
-    layout(
-      paper_bgcolor = "#ffffff",
-      plot_bgcolor = "#ffffff",
-      font = list(color = "#111111", family = plot_font_stack),
-      xaxis = list(title = "", showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-      yaxis = list(title = "", showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-      annotations = list(list(
-        x = 0, y = 1.16, xref = "paper", yref = "paper",
-        text = paste0("Red por eje (", axis_focus, ")"),
-        showarrow = FALSE,
-        font = list(size = 16, color = "#111111")
-      ))
-    )
-  save_iframe(p_red, "index_red_ejes_network.html", height = 640)
+if (length(axis_network_axes) > 0) {
+  network_panels <- vapply(
+    axis_network_axes,
+    function(ax) {
+      nodes_ax <- axis_nodes_sim |>
+        filter(axis == ax) |>
+        mutate(
+          party = as.character(party),
+          node_size = as.numeric(node_size)
+        )
+      edges_ax <- axis_edges_sim |>
+        filter(axis == ax) |>
+        arrange(desc(similarity)) |>
+        slice_head(n = min(18, nrow(axis_edges_sim |> filter(axis == ax))))
+      build_network_panel_html(axis_label(ax), nodes_ax, edges_ax)
+    },
+    character(1)
+  )
+
+  dot_buttons <- paste0(
+    vapply(
+      seq_along(axis_network_axes),
+      function(i) {
+        sprintf(
+          "<button class='carousel-dot%s' type='button' aria-label='Ir a %s' data-slide='%d'></button>",
+          if (i == 1) " is-active" else "",
+          htmltools::htmlEscape(axis_label(axis_network_axes[i])),
+          i - 1
+        )
+      },
+      character(1)
+    ),
+    collapse = ""
+  )
+
+  network_doc <- paste0(
+    "<!DOCTYPE html><html lang='es'><head><meta charset='utf-8'>",
+    "<meta name='viewport' content='width=device-width, initial-scale=1'>",
+    "<style>",
+    "html,body{margin:0;background:#fff;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,'Helvetica Neue',Arial,sans-serif;color:#111;}",
+    ".network-shell{padding:10px 10px 12px;}",
+    ".network-carousel{display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;padding:6px 2px 8px;scrollbar-width:none;-ms-overflow-style:none;}",
+    ".network-carousel::-webkit-scrollbar{display:none;}",
+    ".network-card{flex:0 0 100%;scroll-snap-align:start;border:1px solid #efefef;border-radius:16px;padding:22px 16px 14px;background:#fff;box-sizing:border-box;}",
+    ".network-card-title{text-align:center;font-size:15px;font-weight:600;color:#555;margin:0 0 20px;}",
+    ".network-stage{position:relative;height:500px;background:#fff;overflow:hidden;}",
+    ".network-lines{position:absolute;inset:0;width:100%;height:100%;}",
+    ".network-node{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:7px;}",
+    ".network-node img{width:100%;aspect-ratio:1/1;object-fit:contain;border-radius:12px;background:#fff;box-shadow:0 0 0 1px rgba(17,17,17,.08);}",
+    ".network-node-label{max-width:102px;text-align:center;font-size:11.5px;line-height:1.22;color:#555;}",
+    ".carousel-dots{display:flex;justify-content:center;gap:8px;margin:10px 0 2px;}",
+    ".carousel-dot{width:8px;height:8px;border-radius:999px;border:0;background:#cfcfcf;padding:0;cursor:pointer;transition:all .15s ease;}",
+    ".carousel-dot.is-active{background:#111;width:18px;}",
+    "@media (max-width: 760px){.network-shell{padding:8px 6px 10px;}.network-card{padding:18px 12px 12px;}.network-card-title{margin:0 0 16px;}.network-stage{height:410px;}.network-node-label{font-size:10.5px;max-width:92px;}}",
+    "</style></head><body><div class='network-shell'><div class='network-carousel' id='network-carousel'>",
+    paste(network_panels, collapse = ""),
+    "</div><div class='carousel-dots' id='carousel-dots'>",
+    dot_buttons,
+    "</div></div>",
+    "<script>",
+    "const track=document.getElementById('network-carousel');",
+    "const dots=[...document.querySelectorAll('.carousel-dot')];",
+    "const slides=[...track.children];",
+    "const activateDot=(idx)=>{dots.forEach((dot,i)=>dot.classList.toggle('is-active',i===idx));};",
+    "dots.forEach((dot)=>{dot.addEventListener('click',()=>{const idx=Number(dot.dataset.slide||0); slides[idx]?.scrollIntoView({behavior:'smooth',inline:'start',block:'nearest'}); activateDot(idx);});});",
+    "track.addEventListener('scroll',()=>{const trackLeft=track.scrollLeft; const width=track.clientWidth || 1; const idx=Math.round(trackLeft/width); activateDot(Math.max(0, Math.min(idx, dots.length-1)));},{passive:true});",
+    "</script></body></html>"
+  )
+
+  save_html_iframe(network_doc, "index_red_ejes_network.html", height = 680)
 } else {
-  cat('<p class="small-muted">No hubo suficiente información para dibujar la red por ejes en esta corrida.</p>')
+  cat('<p class="small-muted">No hubo suficiente información para dibujar afinidades por tema en esta selección de candidaturas.</p>')
 }
 ```
 
-La similitud global muestra cercanía agregada; el mapa UMAP revela clústeres de propuestas; y la red por eje permite ver alianzas temáticas más finas que no siempre se ven en el promedio general.
+<p class="chart-analysis">`r red_msg`</p>
 
 ## Concreción {#concrecion}
 
-Con el panorama comparativo claro, esta sección aterriza la calidad operativa de las propuestas.
+Con el panorama comparativo claro, esta sección aterriza en la concreción operativa de las propuestas. Aquí observamos tanto el puntaje promedio de concreción como los componentes que lo sostienen, para ver si esa concreción es general o solo parcial dentro de cada plan.
+
+<div class="chart-title">Nivel de concreción promedio</div>
 
 ```{r results='asis'}
 p_con <- plot_ly(
@@ -548,11 +1614,15 @@ p_con <- plot_ly(
     paper_bgcolor = "#ffffff",
     plot_bgcolor = "#ffffff",
     font = list(color = "#111111", family = plot_font_stack),
-    xaxis = list(title = "Score", color = "#6b6b6b", gridcolor = "#ececec"),
-    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
+    xaxis = list(title = "Concreción promedio", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE, ticklabelstandoff = 20)
   )
 save_iframe(p_con, "index_concrecion_bar.html", height = 720)
 ```
+
+<p class="chart-analysis">`r con_bar_msg`</p>
+
+<div class="chart-title">De qué está hecha esa concreción</div>
 
 ```{r results='asis'}
 p_con_heat <- plot_ly(
@@ -562,23 +1632,34 @@ p_con_heat <- plot_ly(
   z = ~value,
   type = "heatmap",
   colors = c("#ffffff", "#f2d7d5", "#f1948a", "#c0392b"),
-  hovertemplate = "Partido: %{y}<br>Componente: %{x}<br>Valor: %{z:.1f}%<extra></extra>"
+  colorbar = list(title = list(text = "Porcentaje")),
+  hovertemplate = "Partido: %{y}<br>Componente: %{x}<br>Porcentaje: %{z:.1f}%<extra></extra>"
 ) |>
   layout(
     paper_bgcolor = "#ffffff",
     plot_bgcolor = "#ffffff",
     font = list(color = "#111111", family = plot_font_stack),
-    xaxis = list(title = "", tickangle = -20, color = "#6b6b6b"),
-    yaxis = list(title = "", color = "#6b6b6b")
+    xaxis = list(
+      title = "",
+      tickangle = 0,
+      color = "#6b6b6b",
+      automargin = TRUE,
+      tickmode = "array",
+      tickvals = c("Costo o financiamiento", "Horizonte temporal", "Tipo de intervención", "Meta cuantitativa"),
+      ticktext = c("Costo o<br>financiamiento", "Horizonte<br>temporal", "Tipo de<br>intervención", "Meta<br>cuantitativa")
+    ),
+    yaxis = list(title = "", color = "#6b6b6b", ticklabelstandoff = 20)
   )
 save_iframe(p_con_heat, "index_concrecion_componentes.html", height = 700)
 ```
 
-Así se distingue si un partido solo mejora en score general o si realmente sostiene ese resultado en componentes clave como metas, plazos y financiamiento.
+<p class="chart-analysis">`r con_components_msg`</p>
 
 ## Cobertura {#cobertura}
 
-No basta con proponer mucho: también importa a quiénes y a qué territorios está llegando el plan.
+No basta con proponer mucho: también importa a quiénes y a qué territorios está llegando el plan. Esta sección combina vacíos agregados, cobertura por grupos poblacionales y cobertura por tipo de territorio para distinguir agendas amplias de agendas más sesgadas.
+
+<div class="chart-title">Qué grupos o territorios quedan fuera</div>
 
 ```{r results='asis'}
 if (nrow(blind_party) > 0) {
@@ -596,7 +1677,7 @@ if (nrow(blind_party) > 0) {
       plot_bgcolor = "#ffffff",
       font = list(color = "#111111", family = plot_font_stack),
       xaxis = list(title = "N.° de vacíos", color = "#6b6b6b", gridcolor = "#ececec"),
-      yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
+      yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE, ticklabelstandoff = 20)
     )
   save_iframe(p_cov, "index_cobertura_bar.html", height = 620)
 } else {
@@ -604,149 +1685,141 @@ if (nrow(blind_party) > 0) {
 }
 ```
 
+<p class="chart-analysis">`r cov_bar_msg`</p>
+
+<div class="chart-title">A quiénes les hablan los planes</div>
+
 ```{r results='asis'}
 p_pop <- plot_ly(
   pop_party,
-  x = ~population_group,
+  x = ~population_group_label,
   y = ~party,
   z = ~coverage_share,
   type = "heatmap",
   colors = c("#ffffff", "#d5f5e3", "#7dcea0", "#1e8449"),
+  colorbar = list(title = list(text = "Cobertura")),
   hovertemplate = "Partido: %{y}<br>Grupo: %{x}<br>Cobertura: %{z:.1%}<extra></extra>"
 ) |>
   layout(
     paper_bgcolor = "#ffffff",
     plot_bgcolor = "#ffffff",
     font = list(color = "#111111", family = plot_font_stack),
-    xaxis = list(title = "", tickangle = -25, color = "#6b6b6b"),
-    yaxis = list(title = "", color = "#6b6b6b")
+    xaxis = list(
+      title = "",
+      tickangle = 0,
+      color = "#6b6b6b",
+      automargin = TRUE,
+      tickmode = "array",
+      tickvals = unique(as.character(pop_party$population_group_label)),
+      ticktext = stagger_tick(unique(as.character(pop_party$population_group_label))),
+      tickfont = list(size = 11)
+    ),
+    yaxis = list(title = "", color = "#6b6b6b", ticklabelstandoff = 20)
   )
 save_iframe(p_pop, "index_cobertura_poblacion.html", height = 700)
 ```
 
+<p class="chart-analysis">`r cov_pop_msg`</p>
+
+<div class="chart-title">Qué territorios reciben más atención</div>
+
 ```{r results='asis'}
 p_terr <- plot_ly(
   terr_party,
-  x = ~territory_group,
+  x = ~territory_group_label,
   y = ~party,
   z = ~coverage_share,
   type = "heatmap",
   colors = c("#ffffff", "#fdebd0", "#f8c471", "#d68910"),
+  colorbar = list(title = list(text = "Cobertura")),
   hovertemplate = "Partido: %{y}<br>Territorio: %{x}<br>Cobertura: %{z:.1%}<extra></extra>"
 ) |>
   layout(
     paper_bgcolor = "#ffffff",
     plot_bgcolor = "#ffffff",
     font = list(color = "#111111", family = plot_font_stack),
-    xaxis = list(title = "", tickangle = -25, color = "#6b6b6b"),
-    yaxis = list(title = "", color = "#6b6b6b")
+    xaxis = list(
+      title = "",
+      tickangle = 0,
+      color = "#6b6b6b",
+      automargin = TRUE,
+      tickmode = "array",
+      tickvals = unique(as.character(terr_party$territory_group_label)),
+      ticktext = stagger_tick(unique(as.character(terr_party$territory_group_label))),
+      tickfont = list(size = 11)
+    ),
+    yaxis = list(title = "", color = "#6b6b6b", ticklabelstandoff = 20)
   )
 save_iframe(p_terr, "index_cobertura_territorio.html", height = 700)
 ```
 
-El resultado combina tres capas: vacíos agregados, cobertura por grupo poblacional y cobertura por territorio. Juntas muestran si la agenda está equilibrada o deja zonas sin atención.
+<p class="chart-analysis">`r cov_terr_msg`</p>
 
-## Coherencia {#coherencia}
+## Viabilidad fiscal {#viabilidad}
 
-Además del contenido, revisamos consistencia interna: repeticiones entre partidos y choques dentro del mismo plan.
+Este bloque compara dos señales sencillas. La primera resume qué tan respaldadas aparecen, en promedio, las propuestas de cada partido. La segunda muestra qué proporción de sus propuestas alcanza un buen nivel de respaldo fiscal. Juntas permiten ver no solo el promedio, sino también cuán consistente es ese respaldo dentro del plan.
 
-```{r results='asis'}
-if (nrow(dup_sum) > 0) {
-  p_dup <- plot_ly(
-    dup_sum |> arrange(desc(duplicated_proposals_n)),
-    x = ~duplicated_proposals_n,
-    y = ~reorder(party, duplicated_proposals_n),
-    type = "bar",
-    orientation = "h",
-    marker = list(color = "#4b5563"),
-    hovertemplate = "<b>%{y}</b><br>Propuestas duplicadas: %{x}<extra></extra>"
-  ) |>
-    layout(
-      paper_bgcolor = "#ffffff",
-      plot_bgcolor = "#ffffff",
-      font = list(color = "#111111", family = plot_font_stack),
-      xaxis = list(title = "N.° de propuestas duplicadas", color = "#6b6b6b", gridcolor = "#ececec"),
-      yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
-    )
-  save_iframe(p_dup, "index_coherencia_duplicados.html", height = 520)
-}
-```
-
-```{r results='asis'}
-if (nrow(contr_party) > 0) {
-  p_contra <- plot_ly(
-    contr_party,
-    x = ~contradictions_n,
-    y = ~reorder(party, contradictions_n),
-    type = "bar",
-    orientation = "h",
-    marker = list(color = "#1f2937"),
-    customdata = ~round(avg_score, 1),
-    hovertemplate = "<b>%{y}</b><br>Contradicciones: %{x}<br>Score medio: %{customdata}<extra></extra>"
-  ) |>
-    layout(
-      paper_bgcolor = "#ffffff",
-      plot_bgcolor = "#ffffff",
-      font = list(color = "#111111", family = plot_font_stack),
-      xaxis = list(title = "N.° de contradicciones", color = "#6b6b6b", gridcolor = "#ececec"),
-      yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
-    )
-  save_iframe(p_contra, "index_coherencia_contradicciones.html", height = 520)
-}
-```
-
-Estos dos gráficos ayudan a detectar riesgos editoriales y programáticos: copias entre partidos y mensajes internos que podrían tirar en direcciones opuestas.
-
-## Viabilidad Fiscal {#viabilidad}
-
-Este bloque mira si las propuestas de alto impacto vienen acompañadas de sustento fiscal suficiente.
+<div class="chart-title">Respaldo promedio y propuestas con buen sustento</div>
 
 ```{r results='asis'}
 p_fiscal <- plot_ly(
   fiscal_rank,
   x = ~avg_fiscal_viability,
-  y = ~reorder(party, avg_fiscal_viability),
-  type = "bar",
-  orientation = "h",
-  marker = list(color = unname(party_cols[fiscal_rank$party])),
-  customdata = ~round(pct_alta_viabilidad, 1),
-  hovertemplate = "<b>%{y}</b><br>Score fiscal: %{x:.1f}<br>% alta viabilidad: %{customdata:.1f}%<extra></extra>"
+  y = ~pct_alta_viabilidad,
+  type = "scatter",
+  mode = "markers",
+  text = ~party,
+  customdata = ~proposals_n,
+  marker = list(
+    color = unname(party_cols[fiscal_rank$party]),
+    size = 12,
+    line = list(color = "#ffffff", width = 1.5)
+  ),
+  hovertemplate = "<b>%{text}</b><br>Respaldo fiscal promedio: %{x:.1f}<br>% de propuestas con buen respaldo: %{y:.1f}%<br>Propuestas del plan: %{customdata}<extra></extra>",
+  showlegend = FALSE
 ) |>
   layout(
     paper_bgcolor = "#ffffff",
     plot_bgcolor = "#ffffff",
     font = list(color = "#111111", family = plot_font_stack),
-    xaxis = list(title = "Score de viabilidad fiscal", color = "#6b6b6b", gridcolor = "#ececec"),
-    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
+    xaxis = list(title = "Respaldo fiscal promedio", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "% de propuestas con buen respaldo", color = "#6b6b6b", gridcolor = "#ececec", ticksuffix = "%", rangemode = "tozero")
   )
-save_iframe(p_fiscal, "index_viabilidad_score.html", height = 720)
+save_iframe(p_fiscal, "index_viabilidad_score.html", height = 620)
 ```
+
+<p class="chart-analysis">`r fiscal_score_msg`</p>
+
+<div class="chart-title">Propuestas con costo, pero sin fuente explícita</div>
 
 ```{r results='asis'}
 p_fiscal_risk <- plot_ly(
   fiscal_risk,
-  x = ~high_impact_without_funding_n,
-  y = ~reorder(party, high_impact_without_funding_n),
+  x = ~costed_without_funding_n,
+  y = ~reorder(party, costed_without_funding_n),
   type = "bar",
   orientation = "h",
-  marker = list(color = "#7f1d1d"),
-  hovertemplate = "<b>%{y}</b><br>Alta presión sin financiamiento: %{x}<extra></extra>"
+  marker = list(color = unname(party_cols[fiscal_risk$party])),
+  customdata = ~round(costed_without_funding_pct, 1),
+  hovertemplate = "<b>%{y}</b><br>Propuestas con costo sin fuente: %{x}<br>% dentro de las propuestas con costo: %{customdata:.1f}%<extra></extra>"
 ) |>
   layout(
     paper_bgcolor = "#ffffff",
     plot_bgcolor = "#ffffff",
     font = list(color = "#111111", family = plot_font_stack),
-    xaxis = list(title = "N.° de propuestas de alto impacto sin fuente", color = "#6b6b6b", gridcolor = "#ececec"),
-    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
+    xaxis = list(title = "N.° de propuestas con costo sin fuente", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE, ticklabelstandoff = 20)
   )
 save_iframe(p_fiscal_risk, "index_viabilidad_riesgo.html", height = 620)
 ```
 
-La lectura práctica es directa: un plan puede sonar ambicioso, pero si acumula impacto sin fuente de financiamiento, su factibilidad cae.
+<p class="chart-analysis">`r fiscal_risk_msg`</p>
 
-## Benchmark {#benchmark}
+## Contraste con datos oficiales {#benchmark}
 
-Aquí contrastamos los planes con indicadores oficiales para evaluar qué tan conectados están con brechas reales del país.
+Aquí contrastamos los planes con indicadores oficiales para evaluar qué tan conectados están con brechas reales del país. La lectura combina alineación general, comportamiento por eje y uso de indicadores concretos para sostener el contraste externo.
+
+<div class="chart-title">Qué planes conectan mejor con datos oficiales</div>
 
 ```{r results='asis'}
 p_bench <- plot_ly(
@@ -756,37 +1829,55 @@ p_bench <- plot_ly(
   type = "bar",
   orientation = "h",
   marker = list(color = unname(party_cols[bench_party$party])),
-  hovertemplate = "<b>%{y}</b><br>Score benchmark: %{x:.1f}<extra></extra>"
+  hovertemplate = "<b>%{y}</b><br>Conexión con datos oficiales: %{x:.1f}<extra></extra>"
 ) |>
   layout(
     paper_bgcolor = "#ffffff",
     plot_bgcolor = "#ffffff",
     font = list(color = "#111111", family = plot_font_stack),
-    xaxis = list(title = "Alineación", color = "#6b6b6b", gridcolor = "#ececec"),
-    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
+    xaxis = list(title = "Conexión con datos oficiales", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE, ticklabelstandoff = 20)
   )
 save_iframe(p_bench, "index_benchmark_bar.html", height = 620)
 ```
 
+<p class="chart-analysis">`r bench_bar_msg`</p>
+
+<div class="chart-title">En qué temas hay mayor conexión</div>
+
 ```{r results='asis'}
 p_bench_heat <- plot_ly(
   axis_heat,
-  x = ~axis_supervised,
+  x = ~axis_supervised_label,
   y = ~party,
   z = ~avg_alignment_score,
   type = "heatmap",
   colors = c("#ffffff", "#d4efdf", "#82e0aa", "#229954"),
-  hovertemplate = "Partido: %{y}<br>Eje: %{x}<br>Alineación: %{z:.1f}<extra></extra>"
+  colorbar = list(title = list(text = "Conexión")),
+  hovertemplate = "Partido: %{y}<br>Tema: %{x}<br>Conexión: %{z:.1f}<extra></extra>"
 ) |>
   layout(
     paper_bgcolor = "#ffffff",
     plot_bgcolor = "#ffffff",
     font = list(color = "#111111", family = plot_font_stack),
-    xaxis = list(title = "", tickangle = -25, color = "#6b6b6b"),
-    yaxis = list(title = "", color = "#6b6b6b")
+    xaxis = list(
+      title = "",
+      tickangle = 0,
+      color = "#6b6b6b",
+      automargin = TRUE,
+      tickmode = "array",
+      tickvals = unique(as.character(axis_heat$axis_supervised_label)),
+      ticktext = stagger_tick(unique(as.character(axis_heat$axis_supervised_label))),
+      tickfont = list(size = 11)
+    ),
+    yaxis = list(title = "", color = "#6b6b6b", ticklabelstandoff = 20)
   )
 save_iframe(p_bench_heat, "index_benchmark_eje_heatmap.html", height = 700)
 ```
+
+<p class="chart-analysis">`r bench_heat_msg`</p>
+
+<div class="chart-title">Qué indicadores aparecen más en el contraste</div>
 
 ```{r results='asis'}
 p_bench_ind <- plot_ly(
@@ -798,25 +1889,27 @@ p_bench_ind <- plot_ly(
   color = ~source_institution,
   colors = c("#111111", "#374151", "#6b7280", "#9ca3af"),
   customdata = ~avg_alignment_score,
-  hovertemplate = "Indicador: %{y}<br>N.° propuestas: %{x}<br>Alineación media: %{customdata:.1f}<extra></extra>"
+  hovertemplate = "Indicador: %{y}<br>Propuestas asociadas: %{x}<br>Conexión media: %{customdata:.1f}<extra></extra>"
 ) |>
   layout(
     barmode = "group",
     paper_bgcolor = "#ffffff",
     plot_bgcolor = "#ffffff",
     font = list(color = "#111111", family = plot_font_stack),
-    xaxis = list(title = "Propuestas vinculadas", color = "#6b6b6b", gridcolor = "#ececec"),
-    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE),
-    legend = list(title = list(text = "Fuente"))
+    xaxis = list(title = "Propuestas asociadas", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE, ticklabelstandoff = 20),
+    legend = list(title = list(text = "Fuente oficial"))
   )
 save_iframe(p_bench_ind, "index_benchmark_indicadores.html", height = 620)
 ```
 
-Así se observa el rendimiento general por partido, su comportamiento por eje y qué indicadores concretos están sosteniendo la comparación.
+<p class="chart-analysis">`r bench_ind_msg`</p>
 
-## KPIs {#kpis}
+## Seguimiento {#kpis}
 
-Este módulo traduce promesas en seguimiento: qué tan monitoreable es cada plan durante el ciclo de gobierno.
+Este módulo traduce promesas en seguimiento: qué tan monitoreable es cada plan durante el ciclo de gobierno. La idea es pasar del discurso al control ciudadano, viendo cuánto se puede medir, con qué calidad y con qué secuencia temporal.
+
+<div class="chart-title">Qué parte del plan se podría monitorear</div>
 
 ```{r results='asis'}
 p_kpi <- plot_ly(
@@ -826,17 +1919,21 @@ p_kpi <- plot_ly(
   type = "bar",
   orientation = "h",
   marker = list(color = unname(party_cols[kpi_party$party])),
-  hovertemplate = "<b>%{y}</b><br>KPIs verificables: %{x:.1f}%<extra></extra>"
+  hovertemplate = "<b>%{y}</b><br>% del plan que se puede monitorear: %{x:.1f}%<extra></extra>"
 ) |>
   layout(
     paper_bgcolor = "#ffffff",
     plot_bgcolor = "#ffffff",
     font = list(color = "#111111", family = plot_font_stack),
-    xaxis = list(title = "% verificable", color = "#6b6b6b", gridcolor = "#ececec"),
-    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE)
+    xaxis = list(title = "% del plan que se puede monitorear", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE, ticklabelstandoff = 20)
   )
 save_iframe(p_kpi, "index_kpi_bar.html", height = 620)
 ```
+
+<p class="chart-analysis">`r kpi_bar_msg`</p>
+
+<div class="chart-title">Qué tan buenos son esos indicadores</div>
 
 ```{r results='asis'}
 p_kpi_stack <- plot_ly(
@@ -846,7 +1943,7 @@ p_kpi_stack <- plot_ly(
   color = ~tier,
   type = "bar",
   orientation = "h",
-  colors = c("alta" = "#111111", "media" = "#6b7280", "baja" = "#c4c7cc"),
+  colors = c("Alta" = "#111111", "Media" = "#6b7280", "Baja" = "#c4c7cc"),
   hovertemplate = "Partido: %{y}<br>Nivel: %{fullData.name}<br>N: %{x}<extra></extra>"
 ) |>
   layout(
@@ -854,42 +1951,47 @@ p_kpi_stack <- plot_ly(
     paper_bgcolor = "#ffffff",
     plot_bgcolor = "#ffffff",
     font = list(color = "#111111", family = plot_font_stack),
-    xaxis = list(title = "N.° de KPIs", color = "#6b6b6b", gridcolor = "#ececec"),
-    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE),
+    xaxis = list(title = "N.° de indicadores", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE, ticklabelstandoff = 20),
     legend = list(title = list(text = "Nivel"))
   )
 save_iframe(p_kpi_stack, "index_kpi_stack.html", height = 700)
 ```
 
+<p class="chart-analysis">`r kpi_stack_msg`</p>
+
+<div class="chart-title">En qué temas se puede hacer mejor seguimiento</div>
+
 ```{r results='asis'}
-axis_palette <- setNames(grDevices::hcl.colors(length(unique(milestones_axis$axis_supervised)), palette = "Dynamic"), unique(milestones_axis$axis_supervised))
+axis_palette <- setNames(grDevices::hcl.colors(length(unique(kpi_axis_view$axis_supervised_label)), palette = "Dynamic"), unique(kpi_axis_view$axis_supervised_label))
 
 p_kpi_line <- plot_ly(
-  milestones_axis,
-  x = ~year,
-  y = ~avg_value,
-  color = ~axis_supervised,
-  colors = axis_palette,
-  type = "scatter",
-  mode = "lines+markers",
-  hovertemplate = "Eje: %{fullData.name}<br>Año: %{x}<br>Meta promedio: %{y:.2f}<extra></extra>"
+  kpi_axis_view,
+  x = ~verificables_pct,
+  y = ~reorder(axis_supervised_label, verificables_pct),
+  type = "bar",
+  orientation = "h",
+  marker = list(color = unname(axis_palette[kpi_axis_view$axis_supervised_label])),
+  customdata = ~avg_verifiability_score,
+  hovertemplate = "Tema: %{y}<br>% monitoreable: %{x:.1f}%<br>Calidad media del seguimiento: %{customdata:.1f}<extra></extra>"
 ) |>
   layout(
     paper_bgcolor = "#ffffff",
     plot_bgcolor = "#ffffff",
     font = list(color = "#111111", family = plot_font_stack),
-    xaxis = list(title = "Año", color = "#6b6b6b", gridcolor = "#ececec", tickvals = c(2027, 2029, 2031)),
-    yaxis = list(title = "Valor promedio de meta", color = "#6b6b6b", gridcolor = "#ececec"),
-    legend = list(title = list(text = "Eje"))
+    xaxis = list(title = "% monitoreable", color = "#6b6b6b", gridcolor = "#ececec", ticksuffix = "%"),
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", ticklabelstandoff = 20)
   )
 save_iframe(p_kpi_line, "index_kpi_line.html", height = 560)
 ```
 
-El bloque KPI permite pasar de discurso a control ciudadano: cuánto se puede medir, con qué calidad y cómo avanza en el tiempo.
+<p class="chart-analysis">`r kpi_line_msg`</p>
 
-## BART {#bart}
+## Implementabilidad {#bart}
 
-Esta parte final explica qué atributos empujan más la probabilidad de que una propuesta sea realmente implementable.
+Aquí usamos un modelo para estimar qué tan implementables parecen las propuestas. La idea no es reemplazar la lectura del plan, sino mostrar qué rasgos suelen acompañar propuestas más fáciles de ejecutar, qué tan cerca queda la estimación de lo observado y dónde el modelo se equivoca más.
+
+<div class="chart-title">Qué factores pesan más en la implementabilidad</div>
 
 ```{r results='asis'}
 imp_cols <- grDevices::colorRampPalette(c("#d9d9d9", "#111111"))(nrow(imp_top))
@@ -897,21 +1999,25 @@ imp_cols <- grDevices::colorRampPalette(c("#d9d9d9", "#111111"))(nrow(imp_top))
 p_bart <- plot_ly(
   imp_top,
   x = ~importance_pct,
-  y = ~reorder(feature, importance_pct),
+  y = ~reorder(feature_label, importance_pct),
   type = "bar",
   orientation = "h",
   marker = list(color = imp_cols),
-  hovertemplate = "Feature: %{y}<br>Importancia: %{x:.2f}%<extra></extra>"
+  hovertemplate = "Factor: %{y}<br>Importancia: %{x:.2f}%<extra></extra>"
 ) |>
   layout(
     paper_bgcolor = "#ffffff",
     plot_bgcolor = "#ffffff",
     font = list(color = "#111111", family = plot_font_stack),
-    xaxis = list(title = "% importancia", color = "#6b6b6b", gridcolor = "#ececec"),
-    yaxis = list(title = "", color = "#6b6b6b")
+    xaxis = list(title = "% de importancia", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "", color = "#6b6b6b", ticklabelstandoff = 20)
   )
 save_iframe(p_bart, "index_bart_importance.html", height = 560)
 ```
+
+<p class="chart-analysis">`r bart_imp_msg`</p>
+
+<div class="chart-title">Qué tan cerca queda la estimación</div>
 
 ```{r results='asis'}
 p_bart_fit <- plot_ly(
@@ -920,10 +2026,10 @@ p_bart_fit <- plot_ly(
   y = ~pred_readiness_score,
   type = "scatter",
   mode = "markers",
-  color = ~actual_tier,
-  colors = c("baja" = "#9ca3af", "media" = "#6b7280", "alta" = "#111111"),
-  marker = list(size = 6, opacity = 0.62),
-  hovertemplate = "Real: %{x:.1f}<br>Predicho: %{y:.1f}<br>Nivel: %{color}<extra></extra>"
+  text = ~party,
+  marker = list(size = 5, opacity = 0.28, color = "#111111"),
+  hovertemplate = "Partido: %{text}<br>Implementabilidad observada: %{x:.1f}<br>Implementabilidad estimada: %{y:.1f}<extra></extra>",
+  showlegend = FALSE
 ) |>
   add_lines(
     x = c(0, 100), y = c(0, 100),
@@ -936,35 +2042,42 @@ p_bart_fit <- plot_ly(
     paper_bgcolor = "#ffffff",
     plot_bgcolor = "#ffffff",
     font = list(color = "#111111", family = plot_font_stack),
-    xaxis = list(title = "Score real", color = "#6b6b6b", gridcolor = "#ececec", range = c(0, 100)),
-    yaxis = list(title = "Score predicho", color = "#6b6b6b", gridcolor = "#ececec", range = c(0, 100)),
-    legend = list(title = list(text = "Nivel real"))
+    xaxis = list(title = "Implementabilidad observada", color = "#6b6b6b", gridcolor = "#ececec", range = c(0, 100)),
+    yaxis = list(title = "Implementabilidad estimada", color = "#6b6b6b", gridcolor = "#ececec", range = c(0, 100))
   )
 save_iframe(p_bart_fit, "index_bart_fit.html", height = 560)
 ```
+
+<p class="chart-analysis">`r bart_fit_msg`</p>
+
+<div class="chart-title">Cómo cambia el resultado según cada factor</div>
 
 ```{r results='asis'}
 p_bart_pdp <- plot_ly(
   pdp_top,
   x = ~x_rank,
   y = ~pred_mean,
-  color = ~feature,
+  color = ~feature_label,
   colors = grDevices::hcl.colors(length(unique(pdp_top$feature)), palette = "Dynamic"),
   type = "scatter",
   mode = "lines+markers",
   customdata = ~feature_value,
-  hovertemplate = "Feature: %{fullData.name}<br>Valor: %{customdata:.3f}<br>Predicción: %{y:.2f}<extra></extra>"
+  hovertemplate = "Factor: %{fullData.name}<br>Valor en la escala: %{customdata:.3f}<br>Predicción media: %{y:.2f}<extra></extra>"
 ) |>
   layout(
     paper_bgcolor = "#ffffff",
     plot_bgcolor = "#ffffff",
     font = list(color = "#111111", family = plot_font_stack),
-    xaxis = list(title = "Posición en grilla", color = "#6b6b6b", gridcolor = "#ececec"),
-    yaxis = list(title = "Score predicho medio", color = "#6b6b6b", gridcolor = "#ececec"),
-    legend = list(title = list(text = "Feature"))
+    xaxis = list(title = "Recorrido del factor", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "Predicción media", color = "#6b6b6b", gridcolor = "#ececec"),
+    legend = list(title = list(text = "Factor"))
   )
 save_iframe(p_bart_pdp, "index_bart_pdp.html", height = 620)
 ```
+
+<p class="chart-analysis">`r bart_pdp_msg`</p>
+
+<div class="chart-title">Dónde el modelo acierta menos</div>
 
 ```{r results='asis'}
 p_bart_res <- plot_ly(
@@ -974,59 +2087,107 @@ p_bart_res <- plot_ly(
   type = "bar",
   orientation = "h",
   color = ~resid_sign,
-  colors = c("Negativo" = "#9ca3af", "Positivo" = "#111111"),
+  colors = c("Sobreestima" = "#9ca3af", "Subestima" = "#111111"),
   customdata = ~residual_abs_mean,
-  hovertemplate = "Partido: %{y}<br>Residual medio: %{x:.2f}<br>Error absoluto: %{customdata:.2f}<extra></extra>"
+  hovertemplate = "Partido: %{y}<br>Diferencia media: %{x:.2f}<br>Error absoluto medio: %{customdata:.2f}<extra></extra>"
 ) |>
   layout(
     paper_bgcolor = "#ffffff",
     plot_bgcolor = "#ffffff",
     font = list(color = "#111111", family = plot_font_stack),
-    xaxis = list(title = "Residual (real - pred)", color = "#6b6b6b", gridcolor = "#ececec"),
-    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE),
-    legend = list(title = list(text = "Signo"))
+    xaxis = list(title = "Diferencia media (observado - predicho)", color = "#6b6b6b", gridcolor = "#ececec"),
+    yaxis = list(title = "", color = "#6b6b6b", gridcolor = "#ececec", automargin = TRUE, ticklabelstandoff = 20),
+    legend = list(title = list(text = "Sesgo del modelo"))
   )
 save_iframe(p_bart_res, "index_bart_residuals.html", height = 620)
 ```
 
-Con este cierre puedes ver qué variables pesan más, cómo ajusta el modelo y dónde tiende a sobreestimar o subestimar por partido.
+<p class="chart-analysis">`r bart_res_msg`</p>
 
 ## Métodos {#metodos}
 
 ```{=html}
+<p class="methods-overview">Aquí reunimos, de manera transparente, las distintas herramientas de análisis de texto que se aplicaron a los planes de gobierno presentados ante el Jurado Nacional de Elecciones. La idea es que puedas ver no solo los resultados, sino también cómo se construyó cada lectura comparativa del sitio. Debajo encontrarás, sección por sección, qué se hizo, con qué enfoque y cómo conviene interpretar cada resultado.</p>
 <div class="method-grid">
-<div class="method-box">
-<div class="method-title">Panorama</div>
-<p>Conteo de propuestas por partido y cruce con score promedio para separar volumen de ejecutabilidad.</p>
+<details class="method-box" open>
+<summary class="method-summary">Procesamiento</summary>
+<div class="method-content">
+<p>El trabajo se desarrolló en <code>R</code> usando <code>Positron</code> como entorno principal. La preparación y estructuración se apoyó sobre todo en <code>fs</code>, <code>readr</code>, <code>stringr</code>, <code>stringi</code>, <code>dplyr</code>, <code>tidyr</code> y <code>arrow</code>; la parte analítica combinó extracción de texto, reglas lingüísticas, modelado temático, reducción de dimensión, redes, contraste con indicadores oficiales, seguimiento e implementabilidad.</p>
+<ul class="method-list">
+<li>Preparación y limpieza: normalización de texto, control de codificación, ordenamiento documental y copia de trabajo dentro del proyecto para no tocar los archivos originales.</li>
+<li>Extracción de propuestas: segmentación por secciones, oraciones y listas con verbos de acción pública.</li>
+<li>Clasificación: asignación de eje temático, tipo de intervención y variables como meta numérica, plazo, población objetivo, territorio, costo, fuente y evidencia.</li>
+<li>Análisis comparativo: conteo, similitud semántica, tópicos, cobertura, viabilidad fiscal, contraste con datos oficiales, seguimiento e implementabilidad.</li>
+</ul>
+<p>Como marco general del análisis automático de texto en ciencia política y de sus etapas de validación, seguimos el enfoque <em>text as data</em> (<a href="https://doi.org/10.1093/pan/mps028" target="_blank" rel="noopener">Grimmer y Stewart, 2013</a>).</p>
 </div>
-<div class="method-box">
-<div class="method-title">Agenda</div>
-<p>Clasificación temática por ejes + tópicos dominantes para medir prioridad programática.</p>
+</details>
+<details class="method-box">
+<summary class="method-summary">Cantidad y claridad</summary>
+<div class="method-content">
+<p>En esta sección contamos cuántas propuestas quedaron extraídas por partido y calculamos su claridad promedio. La base sale de <code>propuestas_supervised.parquet</code>, que ya contiene una propuesta por fila con su trazabilidad documental.</p>
+<p>La claridad o concreción se resume en una escala de 0 a 100. Ese puntaje suma cuando una propuesta tiene meta numérica, horizonte temporal, tipo de intervención, población objetivo, territorio, mención de costo o fuente y evidencia; también descuenta cuando el lenguaje es demasiado vago. El procesamiento se hizo con <code>dplyr</code>, <code>stringr</code> y <code>arrow</code>, siguiendo trabajos sobre especificidad de promesas y ambigüedad programática (<a href="https://ucigcc.org/wp-content/uploads/2024/10/2024_wp7_ntounias-schneider-thomson_v2-FINAL-1.pdf" target="_blank" rel="noopener">Ntounias, Schneider y Thomson, 2024</a>).</p>
 </div>
-<div class="method-box">
-<div class="method-title">Similitud y Red</div>
-<p>Similitud textual, mapa UMAP y red por ejes para identificar cercanías globales y sectoriales.</p>
+</details>
+<details class="method-box">
+<summary class="method-summary">Agenda</summary>
+<div class="method-content">
+<p>Aquí miramos en qué temas se concentra cada plan. Para eso usamos el eje temático original extraído de cada propuesta y, además, un modelo STM para resumir tópicos dominantes que se repiten entre partidos.</p>
+<p>La clasificación temática combina diccionarios y reglas sobre el texto de las propuestas. El modelado de tópicos usa <code>stm</code>; la preparación textual se apoyó en <code>tokenizers</code>, <code>stopwords</code> y <code>tidytext</code>. No hay cambio de escala complejo: las barras y mapas de color trabajan con participaciones porcentuales dentro del total de propuestas.</p>
+<p>Como respaldo metodológico, esta parte se apoya en el modelo STM y su implementación en R (<a href="https://doi.org/10.18637/jss.v091.i02" target="_blank" rel="noopener">Roberts, Stewart y Tingley, 2019</a>).</p>
 </div>
-<div class="method-box">
-<div class="method-title">Concreción</div>
-<p>Índice compuesto de metas, plazos, instrumento y financiamiento para evaluar claridad operativa.</p>
+</details>
+<details class="method-box">
+<summary class="method-summary">Similitud</summary>
+<div class="method-content">
+<p>La sección de similitud compara lenguaje y contenido entre candidaturas. Se usan tres vistas: una matriz de similitud entre partidos, un mapa semántico de propuestas y una red por tema para ver afinidades específicas.</p>
+<p>La similitud global se calcula con vectores textuales y distancia coseno; el mapa semántico usa reducción de dimensión con <code>uwot</code>; y la red temática resume vínculos fuertes por eje. En la matriz, la escala va de 0 a 1: 0 significa muy poca semejanza y 1 significa una cercanía casi total.</p>
+<p>La proyección semántica se inspira en métodos recientes para medir similitud textual y reducir espacios complejos a dos dimensiones sin perder estructura general (<a href="https://doi.org/10.21105/joss.00861" target="_blank" rel="noopener">McInnes et al., 2018</a>; <a href="https://doi.org/10.1111/ajps.12956" target="_blank" rel="noopener">Luo, 2025</a>).</p>
 </div>
-<div class="method-box">
-<div class="method-title">Cobertura</div>
-<p>Medición de cobertura poblacional/territorial y detección de vacíos por partido.</p>
+</details>
+<details class="method-box">
+<summary class="method-summary">Concreción</summary>
+<div class="method-content">
+<p>La concreción se observa de dos maneras: el promedio por partido y la composición interna de ese puntaje. Así podemos ver no solo quién parece más concreto, sino de qué está hecha esa concreción.</p>
+<p>Las cuatro piezas que hoy se muestran en el mapa de color son: costo o financiamiento, horizonte temporal, tipo de intervención y meta cuantitativa. La escala va de 0 a 100 para el puntaje general, y de 0% a 100% para la presencia de cada componente. Todo se resume con <code>dplyr</code> y se visualiza con <code>plotly</code>, siguiendo literatura sobre promesas verificables y ambigüedad programática (<a href="https://doi.org/10.1080/13501763.2025.2481189" target="_blank" rel="noopener">Vestergaard, 2025a</a>).</p>
 </div>
-<div class="method-box">
-<div class="method-title">Coherencia</div>
-<p>Búsqueda de duplicados interpartido y contradicciones internas dentro de cada plan.</p>
+</details>
+<details class="method-box">
+<summary class="method-summary">Cobertura</summary>
+<div class="method-content">
+<p>En cobertura revisamos a quiénes les hablan los planes y qué territorios reciben atención. Para eso se detectan menciones a grupos poblacionales y espacios territoriales mediante reglas sobre el texto.</p>
+<p>Las categorías se normalizaron para que el lector vea etiquetas simples como <em>Adulto mayor</em>, <em>MYPE y empresas</em> o <em>Regiones y provincias</em>. Los mapas de color muestran proporciones dentro del plan: tonos más intensos significan mayor presencia de propuestas dirigidas a ese grupo o territorio. Este tipo de medición de atención política en texto sigue recomendaciones de validación conceptual y uso de diccionarios en ciencia política (<a href="https://doi.org/10.1146/annurev-polisci-052615-025542" target="_blank" rel="noopener">Wilkerson y Casas, 2017</a>).</p>
 </div>
-<div class="method-box">
-<div class="method-title">Viabilidad fiscal</div>
-<p>Evaluación de soporte financiero y riesgos por propuestas de alto impacto sin fuente.</p>
+</details>
+<details class="method-box">
+<summary class="method-summary">Viabilidad fiscal</summary>
+<div class="method-content">
+<p>La viabilidad fiscal cruza dos señales. La primera resume el respaldo fiscal promedio de las propuestas de un partido. La segunda mide qué proporción de esas propuestas tiene un buen nivel de sustento.</p>
+<p>El puntaje fiscal se construyó con reglas reproducibles sobre presencia de costo, monto, fuente de financiamiento, plazo, meta y anclaje macrofiscal. Aquí usamos <code>dplyr</code>, <code>stringr</code> y archivos derivados del bloque de diagnóstico fiscal. La lectura es descriptiva: no reemplaza una evaluación presupuestal del MEF, pero sí se apoya en enfoques de minería de texto para documentos con contenido fiscal y financiero (<a href="https://www.sciencedirect.com/science/article/pii/S2405844024094970" target="_blank" rel="noopener">Zhang et al., 2024</a>).</p>
 </div>
-<div class="method-box">
-<div class="method-title">Benchmark, KPIs y BART</div>
-<p>Contraste externo con indicadores oficiales, capacidad de seguimiento ex-post y análisis explicativo de implementabilidad.</p>
+</details>
+<details class="method-box">
+<summary class="method-summary">Contraste con datos oficiales</summary>
+<div class="method-content">
+<p>En esta parte se compara cada propuesta con indicadores externos para ver qué tan conectada está con brechas reales del país. La referencia se armó con series oficiales y se cruza con las propuestas mediante reglas de tema, palabras clave y metas cuantitativas detectadas en el texto.</p>
+<p>El bloque usa principalmente <code>arrow</code>, <code>dplyr</code>, <code>tidyr</code>, <code>stringr</code> y <code>readr</code>. La escala de conexión va de 0 a 100: valores más altos indican una relación más clara entre propuesta, dirección de cambio, meta y dato oficial. La lógica de cruce entre textos de política e indicadores externos se apoya en desarrollos recientes de <em>text-as-data</em> para entender diseño de política pública (<a href="https://doi.org/10.1038/s41597-023-02801-z" target="_blank" rel="noopener">Sewerin et al., 2023</a>).</p>
 </div>
+</details>
+<details class="method-box">
+<summary class="method-summary">Seguimiento</summary>
+<div class="method-content">
+<p>Esta sección traduce propuestas en posibilidades de seguimiento ciudadano. A partir del mismo cruce con indicadores oficiales se estima qué parte del plan puede monitorearse, con qué calidad y en qué temas hay mejores condiciones de control.</p>
+<p>Se construyó un <em>tracker</em> con ventanas 2026–2031, hitos intermedios y un puntaje de verificabilidad. Ese puntaje pondera si la propuesta tiene meta, plazo, indicador asociado, fuente y suficiente claridad operativa. Los porcentajes que se ven en esta sección siempre se leen entre 0% y 100%, en línea con trabajos recientes sobre monitoreo digital de programas públicos (<a href="https://doi.org/10.3389/frai.2025.1656329" target="_blank" rel="noopener">Uandykova et al., 2025</a>).</p>
+</div>
+</details>
+<details class="method-box">
+<summary class="method-summary">Implementabilidad</summary>
+<div class="method-content">
+<p>Aquí usamos un modelo BART, sigla de <em>Bayesian Additive Regression Trees</em>, para resumir qué factores suelen acompañar propuestas más implementables. El objetivo no es predecir el futuro político, sino identificar patrones que ayudan a explicar por qué algunas propuestas parecen más ejecutables que otras.</p>
+<p>El modelo se estimó con <code>dbarts</code> y se alimentó con variables del resto del pipeline: concreción, viabilidad fiscal, contraste externo, seguimiento, tipo de intervención, lenguaje vago y confianza temática. La salida se muestra en escala de 0 a 100 y debe leerse como evidencia descriptiva, no causal.</p>
+<p>Si quieres revisar la base estadística del enfoque, aquí tienes la referencia original del modelo y una revisión posterior del método (<a href="https://doi.org/10.1214/09-AOAS285" target="_blank" rel="noopener">Chipman, George y McCulloch, 2010</a>; <a href="https://doi.org/10.1146/annurev-statistics-031219-041110" target="_blank" rel="noopener">Hill, Linero y Murray, 2020</a>). También puedes abrir la documentación del paquete <a href="https://cran.r-project.org/package=dbarts" target="_blank" rel="noopener">dbarts</a>.</p>
+</div>
+</details>
 </div>
 ```
 

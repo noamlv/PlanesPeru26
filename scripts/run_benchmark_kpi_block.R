@@ -177,7 +177,7 @@ write_csv(ref, file.path(outputs_dir, "benchmark_indicator_reference.csv"))
 props <- propuestas |>
   transmute(
     party, doc_id, proposal_id,
-    axis_supervised = str_to_lower(coalesce(axis_supervised, "otros")),
+    axis_supervised = str_to_lower(coalesce(axis, axis_supervised, "otros")),
     instrument_supervised,
     has_quant_target,
     has_time_horizon,

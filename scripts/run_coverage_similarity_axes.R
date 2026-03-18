@@ -195,15 +195,31 @@ write_csv(coverage_blindspots_party, file.path(outputs_dir, "coverage_blindspots
 # -------------------------------------------------------------------
 
 emb <- propuestas |>
-  select(proposal_id, party, axis_supervised, concreteness_score) |>
+  select(proposal_id, party, axis_supervised, proposal_text, concreteness_score) |>
+  mutate(
+    txt_norm = normalize_for_match(coalesce(proposal_text, "")),
+    axis_network = case_when(
+      str_detect(txt_norm, "corrup|coima|soborno|lavado de activos|transparen|integridad publica|contralor") ~ "corrupcion",
+      str_detect(txt_norm, "transporte|movilidad|metro|tren|ferro|carretera|via|puerto|aeropuerto|terminal") ~ "transporte",
+      str_detect(txt_norm, "salud|hospital|medic|essalud|vacuna|atencion primaria") ~ "salud",
+      str_detect(txt_norm, "educacion|colegio|universidad|docente|curriculo|beca|aprendizaje") ~ "educacion",
+      str_detect(txt_norm, "empleo|trabajo|laboral|salario|formalizacion|desempleo") ~ "empleo",
+      axis_supervised %in% c("seguridad", "economia", "energia", "ambiente", "social", "infraestructura", "institucionalidad") ~ axis_supervised,
+      str_detect(txt_norm, "agua|clima|ambient|residuo|forest|sostenible") ~ "ambiente",
+      str_detect(txt_norm, "vivienda|saneamiento|agua potable|alcantarillado|obra publica") ~ "infraestructura",
+      str_detect(txt_norm, "pobreza|inclusion|ninez|infancia|mujer|joven|adulto mayor|discapacidad") ~ "social",
+      TRUE ~ "otros"
+    )
+  ) |>
+  select(-proposal_text) |>
   left_join(embeddings, by = c("proposal_id", "party"))
 
 dim_cols <- names(emb)[str_detect(names(emb), "^dim_")]
 if (length(dim_cols) < 2) stop("Embeddings con dimensiones insuficientes.", call. = FALSE)
 
 axis_party_centroids <- emb |>
-  filter(!is.na(axis_supervised), axis_supervised != "") |>
-  group_by(axis_supervised, party) |>
+  filter(!is.na(axis_network), axis_network != "") |>
+  group_by(axis_network, party) |>
   filter(n() >= 3) |>
   summarise(
     proposals_n = n(),
@@ -219,11 +235,11 @@ cosine <- function(a, b) {
   sum(a * b) / (na * nb)
 }
 
-axis_levels <- sort(unique(axis_party_centroids$axis_supervised))
+axis_levels <- sort(unique(axis_party_centroids$axis_network))
 
 edges <- map_dfr(axis_levels, function(ax) {
   df <- axis_party_centroids |>
-    filter(axis_supervised == ax)
+    filter(axis_network == ax)
 
   if (nrow(df) < 2) return(tibble())
 
@@ -250,16 +266,16 @@ edges <- map_dfr(axis_levels, function(ax) {
       edge_flag = case_when(
         similarity >= 0.90 ~ "muy_alta",
         similarity >= 0.82 ~ "alta",
-        similarity >= 0.75 ~ "media",
+        similarity >= 0.72 ~ "media",
         TRUE ~ "baja"
       )
     ) |>
-    filter(similarity >= 0.75)
+    filter(similarity >= 0.72)
 })
 
 nodes <- axis_party_centroids |>
   transmute(
-    axis = axis_supervised,
+    axis = axis_network,
     party,
     proposals_n,
     avg_concreteness,
