@@ -1,5 +1,9 @@
 ---
 title: "Partidos y planes"
+description: "Consulta los planes originales presentados ante el Jurado Nacional de Elecciones por cada candidatura presidencial."
+title-meta: "Planes originales | Planómetro 2026"
+description-meta: "Consulta los planes originales presentados ante el Jurado Nacional de Elecciones por cada candidatura presidencial."
+image: "assets/seo/og-planometro-2026.svg"
 format: html
 title-block: false
 ---

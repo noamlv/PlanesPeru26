@@ -5,8 +5,11 @@ project:
     - index.qmd
     - partidos.qmd
 
+lang: es
+
 website:
   title: "Planómetro 2026"
+  site-url: "https://noamlv.github.io/PlanesPeru26/"
   navbar:
     title: false
     collapse-below: lg
@@ -34,6 +37,10 @@ format:
     css: styles.css
     include-in-header: head.html
     code-fold: false
+    canonical-url: true
+    open-graph: true
+    twitter-card:
+      card-style: summary_large_image
 
 execute:
   echo: false

@@ -1,5 +1,9 @@
 ---
 title: "Planómetro 2026"
+description: "Visualizaciones y análisis comparado de los planes de gobierno en Perú 2026: propuestas, similitudes, factibilidad, métodos y planes originales."
+title-meta: "Planómetro 2026 | Análisis comparado de planes de gobierno en Perú"
+description-meta: "Visualizaciones y análisis comparado de los planes de gobierno en Perú 2026: propuestas, similitudes, factibilidad, métodos y planes originales."
+image: "assets/seo/og-planometro-2026.svg"
 format: html
 ---
 
