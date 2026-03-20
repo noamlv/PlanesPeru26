@@ -547,6 +547,20 @@ stagger_tick <- function(x) {
   )
 }
 
+agenda_tick <- function(x) {
+  base <- dplyr::recode(
+    x,
+    "Infraestructura" = "Infraes<br>tructura",
+    "Institucionalidad" = "Institucio<br>nalidad",
+    .default = x
+  )
+  ifelse(
+    seq_along(base) %% 2 == 0,
+    paste0(base, "<br>"),
+    paste0("<br>", base)
+  )
+}
+
 tier_label <- function(x) {
   recode(
     x,
@@ -1386,7 +1400,7 @@ cat(sprintf(
 </section>
 ```
 
-## Cantidad y claridad {#panorama}
+## Cantidad y concreción {#panorama}
 
 En esta vista comparamos cuántos enunciados programáticos detectó el extractor en cada plan y qué nivel de concreción promedio alcanzan. La lectura conjunta permite distinguir entre planes extensos y planes realmente utilizables, sin confundir volumen con claridad.
 
@@ -1495,7 +1509,8 @@ p_ag_heat <- plot_ly(
       automargin = TRUE,
       tickmode = "array",
       tickvals = unique(as.character(axis_mix_view$axis_agenda_label)),
-      ticktext = wrap_tick(unique(as.character(axis_mix_view$axis_agenda_label)))
+      ticktext = agenda_tick(unique(as.character(axis_mix_view$axis_agenda_label))),
+      tickfont = list(size = 11)
     ),
     yaxis = list(title = "", color = "#6b6b6b", ticklabelstandoff = 20)
   )
@@ -2194,7 +2209,7 @@ save_iframe(p_bart_res, "index_bart_residuals.html", height = 620)
 </div>
 </details>
 <details class="method-box">
-<summary class="method-summary">Cantidad y claridad</summary>
+<summary class="method-summary">Cantidad y concreción</summary>
 <div class="method-content">
 <p>En esta sección contamos cuántas propuestas quedaron extraídas por partido y calculamos su claridad promedio.</p>
 <p>La claridad o concreción se resume en una escala de 0 a 100. Ese puntaje suma cuando una propuesta tiene meta numérica, horizonte temporal, tipo de intervención, población objetivo, territorio, mención de costo o fuente y evidencia; también descuenta cuando el lenguaje es demasiado vago. El procesamiento se hizo con <code>dplyr</code>, <code>stringr</code> y <code>arrow</code>, siguiendo trabajos sobre especificidad de promesas y ambigüedad programática (<a href="https://ucigcc.org/wp-content/uploads/2024/10/2024_wp7_ntounias-schneider-thomson_v2-FINAL-1.pdf" target="_blank" rel="noopener">Ntounias, Schneider y Thomson, 2024</a>).</p>
