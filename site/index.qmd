@@ -551,13 +551,14 @@ agenda_tick <- function(x) {
   base <- dplyr::recode(
     x,
     "Infraestructura" = "Infraes<br>tructura",
-    "Institucionalidad" = "Institucio<br>nalidad",
+    "Institucionalidad" = "Instituciona<br>lidad",
+    "Salud" = "Salud",
     .default = x
   )
   ifelse(
     seq_along(base) %% 2 == 0,
-    paste0(base, "<br>"),
-    paste0("<br>", base)
+    paste0("<br><br>", base),
+    paste0(base, "<br><br>")
   )
 }
 
@@ -1383,7 +1384,7 @@ bart_res_msg <- if (nrow(bart_res_focus) == 1) {
 
 ```{r results='asis'}
 cat(sprintf(
-  '<div class="kpi-inline">\n  <div class="kpi-item"><div class="kpi-label">Planes</div><div class="kpi-value">%d</div><div class="kpi-desc">Se revisaron los planes de gobierno de cada partido</div></div>\n  <div class="kpi-item"><div class="kpi-label">Propuestas operativas</div><div class="kpi-value">%s</div><div class="kpi-desc">Acciones con al menos una señal operativa clara</div></div>\n  <div class="kpi-item"><div class="kpi-label">Metas claras</div><div class="kpi-value">%.1f%%</div><div class="kpi-desc">Propuestas que incluyen una meta concreta y medible</div></div>\n  <div class="kpi-item"><div class="kpi-label">Plazo definido</div><div class="kpi-value">%.1f%%</div><div class="kpi-desc">Propuestas que indican un plazo explícito para cumplirse</div></div>\n  <div class="kpi-item"><div class="kpi-label">Claridad</div><div class="kpi-value">%.1f</div><div class="kpi-desc">Nivel promedio de claridad operativa de las propuestas</div></div>\n</div>',
+  '<div class="kpi-inline">\n  <div class="kpi-item"><div class="kpi-label">Planes</div><div class="kpi-value">%d</div><div class="kpi-desc">Se revisaron los planes de gobierno de cada partido</div></div>\n  <div class="kpi-item"><div class="kpi-label">Propuestas operativas</div><div class="kpi-value">%s</div><div class="kpi-desc">Acciones con al menos una señal operativa clara</div></div>\n  <div class="kpi-item"><div class="kpi-label">Metas claras</div><div class="kpi-value">%.1f%%</div><div class="kpi-desc">Propuestas que incluyen una meta concreta y medible</div></div>\n  <div class="kpi-item"><div class="kpi-label">Plazo definido</div><div class="kpi-value">%.1f%%</div><div class="kpi-desc">Propuestas que indican un plazo explícito para cumplirse</div></div>\n  <div class="kpi-item"><div class="kpi-label">Concreción</div><div class="kpi-value">%.1f</div><div class="kpi-desc">Nivel promedio de definición operativa de las propuestas</div></div>\n</div>',
   kpi$partidos,
   format(kpi$propuestas_n, big.mark = ",", scientific = FALSE),
   kpi$pct_cuant,
@@ -1402,7 +1403,7 @@ cat(sprintf(
 
 ## Cantidad y concreción {#panorama}
 
-En esta vista comparamos cuántos enunciados programáticos detectó el extractor en cada plan y qué nivel de concreción promedio alcanzan. La lectura conjunta permite distinguir entre planes extensos y planes realmente utilizables, sin confundir volumen con claridad.
+En esta vista comparamos cuántos enunciados programáticos detectó el extractor en cada plan y qué nivel de concreción promedio alcanzan. La lectura conjunta permite distinguir entre planes extensos y planes realmente utilizables, sin confundir volumen con capacidad de ejecución.
 
 <div class="chart-title">Qué partidos proponen más</div>
 
@@ -1429,7 +1430,7 @@ save_iframe(p_pan, "index_panorama_bar.html", height = 720)
 
 <p class="chart-analysis">`r pan_bar_msg`</p>
 
-<div class="chart-title">Cantidad no siempre es claridad</div>
+<div class="chart-title">Cantidad no siempre es concreción</div>
 
 ```{r results='asis'}
 p_pan_scatter <- plot_ly(
