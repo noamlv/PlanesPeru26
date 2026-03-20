@@ -557,8 +557,8 @@ agenda_tick <- function(x) {
   )
   ifelse(
     seq_along(base) %% 2 == 0,
-    paste0("<br><br>", base),
-    paste0(base, "<br><br>")
+    paste0("<br><br><br>", base),
+    paste0(base, "<br><br><br>")
   )
 }
 
@@ -1511,11 +1511,11 @@ p_ag_heat <- plot_ly(
       tickmode = "array",
       tickvals = unique(as.character(axis_mix_view$axis_agenda_label)),
       ticktext = agenda_tick(unique(as.character(axis_mix_view$axis_agenda_label))),
-      tickfont = list(size = 11)
+      tickfont = list(size = 10)
     ),
     yaxis = list(title = "", color = "#6b6b6b", ticklabelstandoff = 20)
   )
-save_iframe(p_ag_heat, "index_agenda_heatmap.html", height = 700)
+save_iframe(p_ag_heat, "index_agenda_heatmap.html", height = 740)
 ```
 
 <p class="chart-analysis">`r agenda_heat_msg`</p>
